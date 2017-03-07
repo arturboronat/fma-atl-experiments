@@ -1,0 +1,1046 @@
+--- ----------------------------------------------------------------------------
+--- author: Artur Boronat
+--- date: 08-02-2015
+---
+--- aim: SOS rules of DSL of focussed model actions (Meseguer's Festschrift)
+--- ----------------------------------------------------------------------------
+view BiRefEnd from TRIV to MODEL is
+  sort Elt to BiRefEnd .
+endv
+
+view SimpleAction from TRIV to MODEL is
+  sort Elt to SimpleAction .
+endv
+
+view Location from TRIV to MODEL is
+  sort Elt to Location .
+endv
+
+view ValueExpr from TRIV to FMA-SYNTAX is
+  sort Elt to ValueExpr .
+endv
+
+mod FMA-SEMANTICS is
+  including FMA-TYPE-CHECKER .
+  
+  --- environment : VarExpr |-> ValueExpr
+  pr FMA-MAP{VarExpr,ValueExpr} * (op undefined to undefEnvVar) .
+  --- environment : Oid |-> Location
+  pr FMA-MAP{Oid,Location} * (op undefined to undefEnvLoc) .
+  --- environment : Cid |-> Oid
+  pr FMA-MAP{QualifiedCid,Oid} * (op undefined to undefEnvNew) .
+  --- opposite reference declaration
+  pr FMA-MAP{BiRefEnd,BiRefEnd} * (op undefined to undefOE) .
+  --- pr MAP{RefOwner,Oid} .
+  pr IMAP{SimpleAction} * (
+  	sort Map{Rat,SimpleAction} to IActionSet, 
+  	sort Entry{Rat,Oid} to IAction, 
+  	op undefined to undefIAction,
+  	op _`,_ : Map{Rat,Oid} Map{Rat,Oid} -> Map{Rat,Oid} to __ 
+  ) .
+
+
+  
+  vars E E' E'' E1 E2 : Env .
+  vars MVar2Val MVar2Val' : Map{VarExpr,ValueExpr} .
+  vars MOid2Loc MOid2Loc1 MOid2Loc2 MOid2Loc3 MOid2Loc4 MOid2Loc' MOid2LocNewObject : Map{Oid,Location} .
+  var MCid2Oid MCid2OidNewObject : Map{QualifiedCid,Oid} . 
+  var O O1 O2 O3 O4 O5 O6 O7 O8 O9 O10 : Oid . 
+  var iO : IOid .
+  var OIDSET : OidSet . 
+  vars Obj Obj1 Obj2 Obj' Obj'' Obj''' : Object .
+  vars PS1 PS1' PS2 PS2' PS PS' PS'' : PropSet .
+  var P P1 P2 P3 P4 P5 P6 P7 P8 P9 P10 : PropName .
+  var OS OS1 OS2 OS3 iOS iOS' iOS1 iOS2 iOS3 iOS4 OSCTX : IObjectSet .
+  var iObj iObj2 : IObject .
+  var IS : IOidSet .
+  var C : QualifiedCid .
+  vars L L' L'' L1 L2 : Location .
+  var EP : EnvP .
+  vars X X' : VarExpr .
+  vars V V' V1 V2 : ValueExpr .
+  var I I' I1 I2 I3 OID : Int .
+  var String ERRORTYPE DESC : String .
+  var B : Bool .
+  var BT : BaseType .
+  var ProcName : ProcName .
+  var ParamList : ParamList .
+  var EXPR EXPR1 EXPR2 : Expr .
+  var ProcType : ProcType .
+  vars ArgList ArgList1 ArgList2 : ArgList .
+  var Arg : Argument .
+  var K K1 K2 K' K'' : K .
+  var OSP : ObjSetPair .
+  var BRS : Map{BiRefEnd,BiRefEnd} .
+  var ERROR : StmtError .
+  var AERROR : ActStmtError .
+  
+  var S S' S1 S1' S2 : Stmt .
+  var ACTS ACTS' ACTS1 ACTS1' ACTS2 : ActStmt .
+  var SV : StmtValue .
+  
+  var VARM : Map{VarExpr,ValueExpr} .
+  vars OIDM LOCM LOCM' LOCM2 : Map{Oid,Location} .
+  var NEWM : Map{QualifiedCid,Oid} .
+  var MTN : ModelTypeName .
+  var SC : Cid .
+ 
+  op getStmt : FmaK -> Stmt .
+  eq getStmt( fmaK(K | stmt(S)) ) = S . 
+  eq getStmt( fmaK(K | stmt(E:StmtError)) ) = E:StmtError . 
+
+  op getModel : FmaK -> IObjectSet .
+  eq getModel( fmaK(K | env(new((( (metamodel("") ! cid("")) |-> oid(metamodel("") ! cid(""),I2)), MCid2Oid)) E) | model(I |-> { prop("freshId") = val(String), PS })) ) = (I |-> { prop("freshId") = val(string(I2,10)), PS }) .
+  eq getModel( fmaK(K | model(iOS)) ) = iOS [owise] .
+  
+  op getOidFactory : K -> Map{QualifiedCid,Oid} .
+  eq getOidFactory( K | env(new(MCid2Oid) E) ) = MCid2Oid .
+  
+  op getFreshOid : QualifiedCid K -> Int .
+  eq getFreshOid( C, (K | env(new(((C |-> oid(C,I)), MCid2Oid)) E) )) = I .
+  
+ 
+  --- --------------------------------------------------------------------------
+  --- ENVIRONMENT
+
+  sort Env .
+  
+  --- injections
+  op var : Map{VarExpr,ValueExpr} -> Env [ctor] .
+  op loc : Map{Oid,Location} -> Env [ctor] .
+  op new : Map{QualifiedCid,Oid} -> Env [ctor] .
+  
+  op getVar : Env -> Map{VarExpr,ValueExpr} .
+  eq getVar( var(MVar2Val) E ) = MVar2Val .
+
+  op getLoc : Env -> Map{Oid,Location} .
+  eq getLoc( loc(MOid2Loc) E ) = MOid2Loc .
+
+  op getNew : Env -> Map{QualifiedCid,Oid} .
+  eq getNew( new(MCid2Oid) E ) = MCid2Oid .
+  
+  op __ : Env Env -> Env [ctor assoc comm id: noEnv] .
+  op noEnv : -> Env [ctor] . 
+ 
+  --- insert/update
+  op insert : VarExpr ValueExpr Env -> Env .
+  eq insert(X, V, var(MVar2Val) E) = var(insert(X,V,MVar2Val)) E .
+
+  op insert : Oid Location Env -> Env .  
+  --- eq insert(O, L, (loc(MOid2Loc) E)) = loc( insert(O, L, MOid2Loc) ) E .
+  eq insert(O, L, (loc(MOid2Loc) E)) = loc( (O |-> L, MOid2Loc) ) E .
+    
+  op insert : QualifiedCid Oid Env -> Env .  
+  eq insert(C, O, new(MCid2Oid) E) = new(insert(C,O,MCid2Oid)) E .
+
+  op insertArgs : ParamList ArgList Env ~> Env .
+  eq insertArgs( nil, nil, E ) = E .
+  --- value expressions
+  eq insertArgs( (X : BT, ParamList), (V, ArgList), E) =
+  	insertArgs(ParamList, ArgList, insert(X, V, E)) .
+
+  --- opposite operation to insert for OidSet
+  op delete : Oid Map{Oid,Location} -> Map{Oid,Location} .
+  eq delete( O, (O |-> L, MOid2Loc) ) = MOid2Loc .
+  eq delete( O, MOid2Loc ) = MOid2Loc [owise] .
+  --- extension to Env
+  op delete : Oid Env -> Env .
+  eq delete( O, loc(MOid2Loc) E ) = loc(delete(O, MOid2Loc)) E .
+  --- extension to OidSet
+  op delete : OidSet Env -> Env .
+  eq delete( emptyOidSet, E ) = E .
+  eq delete( elem(O) OIDSET, E ) = delete(OIDSET, delete(O, E)) . 
+  --- set diff for maps from Oid to Location
+  op diff : Map{Oid,Location} Map{Oid,Location} -> Map{Oid,Location} .
+  
+  eq diff( empty, MOid2Loc' ) = empty .
+  eq diff( (MOid2Loc', MOid2Loc), MOid2Loc' ) = MOid2Loc . --- includes case MOid2Loc' == empty
+  eq diff( MOid2Loc, (O |-> L, MOid2Loc') ) = 
+    if ( MOid2Loc [O] =/= undefEnvLoc ) then
+      diff( delete(O, MOid2Loc), MOid2Loc' )
+    else
+      diff( MOid2Loc, MOid2Loc' )
+    fi 
+  [owise] .
+
+  --- opposite operation to insert for VarExpr
+  op delete : VarExpr Map{VarExpr,ValueExpr} -> Map{VarExpr,ValueExpr} .
+  eq delete( X, (X |-> V, MVar2Val) ) = MVar2Val .
+  eq delete( X, MVar2Val ) = MVar2Val [owise] .
+  --- extension to maps from VarExpr to ValueExpr
+  --- arguments
+  ---  1. map containing mappings to be removed
+  ---  2. map from where we remove mappings
+  op delete : Map{VarExpr,ValueExpr} Map{VarExpr,ValueExpr} -> Map{VarExpr,ValueExpr} .
+  eq delete( empty, MVar2Val' ) = MVar2Val' .
+  eq delete( (X |-> V, MVar2Val), MVar2Val' ) = 
+    delete( MVar2Val, delete(X, MVar2Val') ) .
+  --- extension to environment
+  op delete : VarExpr Env -> Env .
+  eq delete( X, var(MVar2Val) E ) = var(delete(X,MVar2Val)) E .
+     
+  --- set diff for maps from VarExpr to ValueExpr
+  op diff : Map{VarExpr,ValueExpr} Map{VarExpr,ValueExpr} -> Map{VarExpr,ValueExpr} .
+
+  eq diff( empty, MVar2Val' ) = empty .
+  eq diff( (MVar2Val', MVar2Val), MVar2Val' ) = MVar2Val . --- includes case MVar2Val' == empty
+  eq diff( MVar2Val, (X |-> V, MVar2Val') ) = 
+    if ( MVar2Val [X] =/= undefEnvVar ) then
+      diff( delete(X, MVar2Val), MVar2Val' )
+    else
+      diff( MVar2Val, MVar2Val' )
+    fi [owise] .
+
+
+  --- select reference (object) variables
+  op selectOids : Map{VarExpr,ValueExpr} -> Map{VarExpr,ValueExpr} .
+  eq selectOids( MVar2Val ) = selectOids( MVar2Val, empty ) .
+
+  op selectOids : Map{VarExpr,ValueExpr}  Map{VarExpr,ValueExpr} -> Map{VarExpr,ValueExpr} .
+  eq selectOids( (X |-> val(O), MVar2Val), MVar2Val' ) = 
+    selectOids( MVar2Val, (X |-> val(O), MVar2Val')) .
+  eq selectOids( MVar2Val, MVar2Val' ) = MVar2Val' [owise] .  
+  
+  
+  --- lookup
+  op _[_] : Env VarExpr -> [ValueExpr] [prec 23] . 
+  eq (var(MVar2Val) E) [ X ] = MVar2Val [ X ] .
+
+  op _[[_]] : Env Oid -> [Location] [prec 23] . 
+  eq (loc(MOid2Loc) E) [[ O ]] = MOid2Loc [ O ] .
+
+  op _[_] : Env QualifiedCid -> [Oid] [prec 23] . 
+  eq (new(MCid2Oid) E) [ C ] = MCid2Oid [ C ] .
+
+
+  op renamePathPrefix : Location Location Env -> Env .
+  eq renamePathPrefix(loc(O), L', (var(VARM) loc(OIDM) new(NEWM))) = 
+    (var(VARM) loc(renamePathPrefix(loc(O), L' . loc(O), OIDM, empty)) new(NEWM)) .
+  eq renamePathPrefix(L . loc(O), L', (var(VARM) loc(OIDM) new(NEWM))) = 
+    (var(VARM) loc(renamePathPrefix(L . loc(O), L' . loc(O), OIDM, empty)) new(NEWM)) .
+
+  --- GIVEN
+  --- 1. old prefix
+  --- 2. new prefix
+  --- 3. MAP
+  op renamePathPrefix : Location Location Map{Oid,Location} Map{Oid,Location} -> Map{Oid,Location}  .
+  --- location of a root object
+  eq [renamePathPrefixA] : renamePathPrefix(L, L', ((O |-> L), MOid2Loc), MOid2Loc' ) =
+     renamePathPrefix(L, L', MOid2Loc, ((O |-> (L')),MOid2Loc') ) .
+  --- location of a contained object
+  eq [renamePathPrefixB] : renamePathPrefix(L, L', ((O1 |-> ( L . L'' )), MOid2Loc), MOid2Loc' ) =
+     renamePathPrefix(L, L', MOid2Loc, ((O1 |-> (L' . L'' )), MOid2Loc') ) .
+  eq [renamePathPrefixC] : renamePathPrefix(L, L', MOid2Loc, MOid2Loc' ) = (MOid2Loc, MOid2Loc') [owise] .
+
+
+  --- GIVEN
+  --- 1. old prefix
+  --- 2. new prefix
+  --- 3. prop name
+  --- 4. MAP
+  op prependPathPrefix : Location PropName Map{Oid,Location} -> Map{Oid,Location}  .
+  eq prependPathPrefix(L, P, MOid2Loc) = prependPathPrefix(L, P, MOid2Loc, empty) .
+
+  op prependPathPrefix : Location PropName Map{Oid,Location} Map{Oid,Location}  -> Map{Oid,Location}  .
+  eq [prependPathPrefix-base] : prependPathPrefix(L, P, empty, MOid2Loc' ) = MOid2Loc' .
+  eq [prependPathPrefixA-elements] : 
+    prependPathPrefix(L, P, ((O |-> L'), MOid2Loc), MOid2Loc' ) 
+  =
+    prependPathPrefix(L, P, MOid2Loc, (((O |-> (L . loc(P) . L')), MOid2Loc') )) .
+  
+
+ op selectTruncate : Location Map{Oid,Location} -> Map{Oid,Location} .
+ eq selectTruncate( L, LOCM )  = selectTruncate( L, LOCM, empty ) .
+
+ op selectTruncate : Location Map{Oid,Location} Map{Oid,Location} -> Map{Oid,Location} .
+ eq [selectTruncate-root] : selectTruncate( L, ((O |-> L), LOCM), LOCM2 )  =
+    selectTruncate(L, LOCM, ((O |-> loc(O), LOCM2))) .
+  --- contained object 
+  eq [selectTruncate-contained-root] : selectTruncate( loc(O2), ((O |-> (loc(O2) . loc(P) . L'), LOCM)), LOCM2 )  =
+    selectTruncate(loc(O2), LOCM, ((O |-> (loc(O2) . loc(P) . L')), LOCM2)) .
+  eq [selectTruncate-contained-inner] : selectTruncate( L . loc(O2), ((O |-> (L . loc(O2) . loc(P) . L'), LOCM)), LOCM2 )  =
+    selectTruncate(L . loc(O2), LOCM, ((O |-> (loc(O2) . loc(P) . L')), LOCM2)) .
+  eq [selectTruncate-notFound] : selectTruncate( L, LOCM, LOCM2 )  = LOCM2 [owise] .
+ 
+
+  --- the difference with the previous one is that it only applies a renaming
+  --- it does not select
+  op truncate : Location Map{Oid,Location} -> Map{Oid,Location} .
+  eq truncate( L, LOCM ) = truncate( L, LOCM, empty ) .
+
+  op truncate : Location Map{Oid,Location} Map{Oid,Location} -> Map{Oid,Location} .
+  eq truncate( L, ((O |-> L), LOCM), LOCM2 ) =
+    truncate(L, LOCM, ((O |-> loc(O)),LOCM2)) .
+  eq [truncate-contained-root] : truncate( loc(O2), ((O |-> (loc(O2) . loc(P) . L')), LOCM), LOCM2) =
+    truncate(loc(O2), LOCM, ((O |-> (loc(O2) . loc(P) . L')), LOCM2)) .
+  eq [truncate-contained-inner] : truncate( L . loc(O2), ((O |-> (L . loc(O2) . loc(P) . L')), LOCM), LOCM2) =
+    truncate(L . loc(O2), LOCM, ((O |-> (loc(O2) . loc(P) . L')), LOCM2)) .
+  eq truncate( L, LOCM, LOCM2 ) = (LOCM, LOCM2) [owise] .
+
+
+  --- --------------------------------------------------------------------------
+  --- SUBTYPE RELATION AND OPPOSITE REFERENCES 
+  --- used in the typed case when there are opposite references
+  
+  --- model type
+  --- required for bidirectional references only
+  op oe : ModelTypeName -> Map{BiRefEnd,BiRefEnd} .
+
+  var BX : Map{BiRefEnd,BiRefEnd} .
+  var SR : SubtypeRelation .
+  var BRE BRE1 BRE2 : BiRefEnd .
+  
+  op hasOppositeRef : Map{BiRefEnd,BiRefEnd} BiRefEnd SubtypeRelation -> Bool .
+  ceq hasOppositeRef( BX, BRE1, SR ) = true 
+  if BRE2 := getOppositeRef( BX, BRE1, SR ) . 
+  eq hasOppositeRef( BX, BRE1, SR ) = false [owise] . 
+  
+  op getOppositeRef : Map{BiRefEnd,BiRefEnd} BiRefEnd SubtypeRelation -> [BiRefEnd] .
+  eq getOppositeRef( (biRefEnd(C,P) |-> BRE, BX), biRefEnd(C,P), SR ) = BRE .
+  ceq getOppositeRef( BX, biRefEnd(C,P), subtype(C, C2:QualifiedCid) SR ) =                 
+    if $hasMapping(BX, biRefEnd(C2:QualifiedCid,P)) then
+      BX [ biRefEnd(C2:QualifiedCid,P) ]
+    else
+      getOppositeRef( BX, biRefEnd(C,P), SR )
+    fi
+  if $hasMapping(BX, biRefEnd(C,P)) == false .
+
+  eq getOppositeRef( (biCmtEnd(C,P) |-> BRE, BX), biCmtEnd(C,P), SR ) = BRE .
+  ceq getOppositeRef( BX, biCmtEnd(C,P), subtype(C, C2:QualifiedCid) SR ) = 
+    if $hasMapping(BX, biCmtEnd(C2:QualifiedCid,P)) then
+      BX [ biCmtEnd(C2:QualifiedCid,P) ]
+    else
+      getOppositeRef( BX, biCmtEnd(C,P), SR )
+    fi
+  if $hasMapping(BX, biCmtEnd(C,P)) == false .
+
+
+  --- --------------------------------------------------------------------------
+  --- EXPRESSION CONFIGURATIONS
+  
+  sort ExprK .
+  op procEnv : EnvP -> K .
+  op exprEnv : Env -> K .
+  op expr : Expr -> K .
+  
+  op output : ValueExpr? -> K . 
+
+  op exprK : K -> ExprK .
+
+
+
+  --- --------------------------------------------------------------------------
+  --- SOS BUILT-IN OPS
+  --- --------------------------------------------------------------------------
+  crl [E-SumInt] : exprK(K:K | exprEnv(E) | expr(call op("+") (X ,X'))) => 
+  	exprK(output(val(I + I')))
+  if val(I) := E [ X ] /\ val(I') := E [ X' ] . 
+
+
+
+
+
+  
+  --- --------------------------------------------------
+  --- SOS EXPRESSIONS  
+  --- --------------------------------------------------
+
+  rl [E-Value] : exprK(EK:K | expr(V)) => exprK(output(V)) . 
+  
+  rl [E-Var] : exprK(EK:K | exprEnv(E) | expr(X)) => exprK(EK:K | exprEnv(E) | expr(E [ X ])) . 
+  
+  crl [E-LetExpr] :  
+    exprK(EK:K | exprEnv(E) | expr(let X = EXPR1 in EXPR2)) 
+  => 
+    exprK(output(V2)) 
+  if   
+    exprK(EK:K | exprEnv(E) | expr(EXPR1)) 
+    => 
+    exprK(output(V1)) 
+  /\
+    exprK(EK:K | exprEnv(insert(X,V1,E)) | expr(EXPR2)) 
+    => 
+    exprK(output(V2)) .
+    
+    
+    
+ 
+  op allValueExpr? : ArgList -> Bool .
+  eq allValueExpr? ( nil ) = true .
+  eq allValueExpr? ( (V, ArgList) ) = allValueExpr?( ArgList ) .
+  
+  op notValueExpr? : Expr -> Bool .
+  eq notValueExpr?( V ) = false .
+  eq notValueExpr?( EXPR ) = true [owise] .
+  
+  crl [E-ProcInv1] : 
+  	exprK(EK:K | procEnv((ProcName ( ParamList ) = EXPR : ProcType) EP) | exprEnv(E) | expr(call ProcName( ArgList )) )
+  => 
+  	exprK(output(V))
+  if
+  	allValueExpr?(ArgList) 
+  /\
+    exprK(EK:K | procEnv((ProcName ( ParamList ) = EXPR : ProcType) EP) | exprEnv(insertArgs(ParamList, ArgList, E)) | expr(EXPR)) 
+  => 
+    exprK(output(V)) .
+  	  
+  crl [E-ProcInv2] : 
+  	exprK(EK:K | procEnv(EP) | exprEnv(E) | expr(call ProcName( (ArgList1, EXPR, ArgList2) ))) 
+  	=> 
+    exprK(output(V2))
+  if 
+  	allValueExpr?(ArgList1) /\ notValueExpr?(EXPR) 
+  /\ 
+  	exprK(EK:K | procEnv(EP) | exprEnv(E) | expr(EXPR)) => exprK(output(V1)) 
+  /\
+    exprK(EK:K | procEnv(EP) | exprEnv(E) | expr(call ProcName( (ArgList1, V1, ArgList2) )))  => exprK(output(V2)) .
+  	  
+
+  --- --------------------------------------------------
+  --- STATEMENT CONFIGURATIONS
+  sort K .
+  op empty : -> K .
+  op _|_ : K K -> K [ctor assoc comm id: empty format(d n n d)] .
+  op env : Env -> K .
+  op model : IObjectSet -> K .
+  op focus : Location -> K .
+  op ps : PropSet -> K .
+  op stmt : Stmt -> K .
+  op stmt2 : ActStmt -> K .
+  op extExprK : K -> K . 
+  
+  --- support for bidirectional references
+  --- op pendingSet : Map{RefOwner,Oid} -> K .
+  --- op pendingUnset : Map{RefOwner,Oid} -> K .
+  op pendingActions : IActionSet -> K .
+  
+  --- defines configurations FmaK
+  sorts FmaK FmaActK .
+  op fmaK : K -> FmaK . 
+  op fmaActK : K -> FmaActK . 
+  
+  vars SAIS SAIS1 SAIS2 SAIS3 SAIS' SAIS'' : IActionSet .
+ 
+ 
+   
+     
+  --- --------------------------------------------------
+  --- --------------------------------------------------
+  --- SOS MODEL ACTIONS
+  --- --------------------------------------------------
+  --- --------------------------------------------------
+  
+  op fresh : Oid -> Oid .
+  eq fresh( oid(C,I) ) = oid(C,I + 1) .
+
+  --- --------------------------------------------------
+  --- CREATE
+  --- only makes sense when used within E-LetCreate, within E-Snapshot
+  --- this rule creates an object at the indicated spot (property within an object) 
+  crl [E-Create] :
+    fmaActK(K | env(E) | model(iOS1) | focus(L) | ps(P = val(iOS2 (I |-> sentinel)), PS) | stmt2(create(P, C)))  
+  => 
+    fmaActK(K | env(E') | model(iOS1) | focus(L) | ps(P = val(((I |-> { prop("_id") = val(O), PS1 }) iOS2 ((I +N 1) |-> sentinel))), PS) | stmt2(*)) 
+  if
+    C =/= (metamodel("") ! cid("")) 
+  /\
+    oid(MTN ! SC, OID) := deepestOid(L)
+  /\ 
+    hasOppositeRef(oe(MTN),biCmtEnd(MTN ! SC,P),sr(MTN)) == false 
+  /\ 
+    PS1 := default(C)
+  /\
+    O := E [ C ] 
+  /\ 
+    --- E' := insert(O, append(L, P, O), insert(C, fresh(O), E)) . 
+    E' := insert(O, L . loc(P) . loc(O), insert(C, fresh(O), E)) .
+
+    
+  crl [E-CreateBi] :
+    fmaActK(K | env(E) | model(iOS1) | focus(L) 
+    | ps(P = val(iOS2 (I3 |-> sentinel)), PS) 
+    | pendingActions((SAIS, (I2 |-> sentinel))) 
+    | stmt2(create(P, C)))  
+  => 
+    fmaActK(K | env(E') | model(iOS1) | focus(L) 
+    | pendingActions(((I2 |-> set(O,P2,oid(MTN ! SC, OID))), SAIS, ((I2 +N 1) |-> sentinel))) 
+    | ps(P = val(((I3 |-> { prop("_id") = val(O), PS1 }) iOS2 ((I3 +N 1) |-> sentinel) )), PS) | stmt2(*)) 
+  if
+    C =/= (metamodel("") ! cid("")) 
+  /\
+    oid(MTN ! SC, OID) := deepestOid(L)
+  /\ 
+    biRefEnd(C2:QualifiedCid,P2) := getOppositeRef(oe(MTN),biCmtEnd(MTN ! SC,P),sr(MTN))
+  /\ 
+    PS1 := default(C)
+  /\
+    O := E [ C ] 
+  /\ 
+    E' := insert(O, L . loc(P) . loc(O), insert(C, fresh(O), E)) .
+    
+
+  --- --------------------------------------------------
+  --- ATTRIBUTES
+  crl [E-SetAtt-String] :
+    fmaActK(K | env(E) | model(iOS) | extExprK(EK:K) | focus(L) | ps(P = val(S:String), PS) | stmt2(set(P, EXPR)))  
+  => 
+    fmaActK(K | env(E) | model(iOS) | extExprK(EK:K) | focus(L) | ps(P = V', PS) | stmt2(*))
+  if 
+    exprK(EK:K | exprEnv(E) | expr(EXPR)) => exprK(output(V')) .
+
+  crl [E-SetAtt-Int] :
+    fmaActK(K | env(E) | model(iOS) | extExprK(EK:K) | focus(L) | ps(P = val(I:Int), PS) | stmt2(set(P, EXPR)))  
+  => 
+    fmaActK(K | env(E) | model(iOS) | extExprK(EK:K) | focus(L) | ps(P = V', PS) | stmt2(*))
+  if 
+    exprK(EK:K | exprEnv(E) | expr(EXPR)) => exprK(output(V')) .
+
+  crl [E-SetAtt-Bool] :
+    fmaActK(K | env(E) | model(iOS) | extExprK(EK:K) | focus(L) | ps(P = val(B:Bool), PS) | stmt2(set(P, EXPR)))  
+  => 
+    fmaActK(K | env(E) | model(iOS) | extExprK(EK:K) | focus(L) | ps(P = V', PS) | stmt2(*))
+  if 
+    exprK(EK:K | exprEnv(E) | expr(EXPR)) => exprK(output(V')) .
+
+  rl [E-SetAtt-Var-String] :
+    fmaActK(K | env( var( ( X |-> V', MVar2Val) ) E) | model(iOS) | extExprK(EK:K) | focus(L) | ps(P = val(S:String), PS) | stmt2(set(P, X)))  
+  => 
+    fmaActK(K | env( var( ( X |-> V', MVar2Val) ) E)| model(iOS) | extExprK(EK:K) | focus(L) | ps(P = V', PS) | stmt2(*)) .
+
+  rl [E-SetAtt-Var-Int] :
+    fmaActK(K | env( var( ( X |-> V', MVar2Val) ) E) | model(iOS) | extExprK(EK:K) | focus(L) | ps(P = val(I:Int), PS) | stmt2(set(P, X)))  
+  => 
+    fmaActK(K | env( var( ( X |-> V', MVar2Val) ) E) | model(iOS) | extExprK(EK:K) | focus(L) | ps(P = V', PS) | stmt2(*)) .
+
+  rl [E-SetAtt-Var-Bool] :
+    fmaActK(K | env( var( ( X |-> V', MVar2Val) ) E) | model(iOS) | extExprK(EK:K) | focus(L) | ps(P = val(B:Bool), PS) | stmt2(set(P, X)))  
+  => 
+    fmaActK(K | env( var( ( X |-> V', MVar2Val) ) E) | model(iOS) | extExprK(EK:K) | focus(L) | ps(P = V', PS) | stmt2(*)) .
+
+
+  --- --------------------------------------------------
+  --- REFERENCES  
+
+  crl [E-SetRef-Var] :
+    fmaActK(K | extExprK(EK:K) | env(var( (VAR:VarExpr |-> V, VM:Map{VarExpr,ValueExpr}) ) E) | ps(P = ref(IS), PS) | stmt2(set(P, VAR:VarExpr)))
+  =>   
+    fmaActK(K' | stmt2(*))
+  if
+    fmaActK(K | extExprK(EK:K) | env(var( (VAR:VarExpr |-> V, VM:Map{VarExpr,ValueExpr}) ) E) | ps(P = ref(IS), PS) | stmt2(set(P, V)))
+    => 
+    fmaActK(K' | stmt2(*)) .
+
+  crl [E-SetRef-Let] :
+    fmaActK(K | extExprK(EK:K) | env(E) | ps(P = ref(IS), PS) | stmt2(set(P, let X:VarExpr = EXPR1:Expr in EXPR2:Expr )))
+  =>   
+    fmaActK(K' | stmt2(*))
+  if
+    exprK(EK:K | exprEnv(E) | expr( let X:VarExpr = EXPR1:Expr in EXPR2:Expr )) 
+    => 
+    exprK(output(V))
+  /\
+    fmaActK(K | extExprK(EK:K) | env(E) | ps(P = ref(IS), PS) | stmt2(set(P, V)))
+    => 
+    fmaActK(K' | stmt2(*)) .
+
+  crl [E-RefUniSet] :
+    fmaActK(K | env(E) | model(iOS) | focus(L) | ps(P = ref(IS (I |-> sentinel)), PS) | stmt2(set(P, val(O))))  
+  => 
+    fmaActK(K | env(E) | model(iOS) | focus(L) | ps(P = ref(  if hasElement(IS,O) then IS (I |-> sentinel) else (I |-> O) ((I +N 1) |-> sentinel) IS fi), PS) | stmt2(*)) 
+  if 
+    oid(MTN ! SC, OID) := deepestOid(L)
+  /\ 
+    hasOppositeRef(oe(MTN),biCmtEnd(MTN ! SC,P),sr(MTN)) == false 
+  .  
+    
+  crl [E-RefBiSet] : 
+    fmaActK(K | env(E) | model(iOS) | focus(L) | ps(P = ref(IS (I |-> sentinel)), PS) | pendingActions( (SAIS, (I2 |-> sentinel)) ) | stmt2(set(P, val(O))))  
+  => 
+    fmaActK(K | env(E) | model(iOS) | focus(L) 
+      | ps(P = ref(if hasElement(IS,O) then IS (I |-> sentinel) else (I |-> O) (IS (I +N 1 |-> sentinel)) fi), PS) 
+      | pendingActions(if hasElement(IS,O) then (SAIS, (I2 |-> sentinel)) else ((I2 |-> set(O,P2,oid(MTN ! SC, OID))), SAIS, ((I2 +N 1) |-> sentinel)) fi) | stmt2(*)) 
+  if 
+      oid(MTN ! SC, OID) := deepestOid(L)
+    /\ 
+      biRefEnd(C2:QualifiedCid,P2) := getOppositeRef(oe(MTN),biCmtEnd(MTN ! SC,P),sr(MTN))
+  .
+
+  --- the singleton collection only contains the sentinel
+  rl [E-RefSingletonCollection] :
+    fmaActK(K | stmt2(set(P, ref((I |-> sentinel)))))
+  =>   
+    fmaActK(K | stmt2(*)) .
+    
+  crl [E-RefCollection] :
+    fmaActK(K | stmt2(set(P, ref((I |-> oid(C,I2)) IS))))
+  =>   
+    fmaActK(K'' | stmt2(*))
+  if
+    fmaActK(K | stmt2(set(P, val(oid(C,I2)))))
+    => 
+    fmaActK(K' | stmt2(*)) 
+  /\  
+    fmaActK(K' | stmt2(set(P, ref(IS))))
+    => 
+    fmaActK(K'' | stmt2(*)) .
+  
+
+  --- --------------------------------------------------
+  --- CONTAINMENTS  
+  
+  crl [E-SetCmt-Var] :
+    fmaActK(K | extExprK(EK:K) | env(var( (VAR:VarExpr |-> V, VM:Map{VarExpr,ValueExpr}) ) E) | stmt2(setCmt(P, VAR:VarExpr)))
+  =>   
+    fmaActK(K' | stmt2(*))
+  if
+    fmaActK(K | extExprK(EK:K) | env(var( (VAR:VarExpr |-> V, VM:Map{VarExpr,ValueExpr}) ) E) | stmt2(setCmt(P, V)))
+    => 
+    fmaActK(K' | stmt2(*)) .
+
+  crl [E-SetCmt-Let] :
+    fmaActK(K | extExprK(EK:K) | env(E) | stmt2(setCmt(P, let X:VarExpr = EXPR1:Expr in EXPR2:Expr )))
+  =>   
+    fmaActK(K' | stmt2(*))
+  if
+    exprK(EK:K | exprEnv(E) | expr( let X:VarExpr = EXPR1:Expr in EXPR2:Expr )) 
+    => 
+    exprK(output(V))
+  /\
+    fmaActK(K | extExprK(EK:K) | env(E) | stmt2(setCmt(P, V)))
+    => 
+    fmaActK(K' | stmt2(*)) .
+
+  rl [E-CmtSingletonCollection] :
+    fmaActK(K | stmt2(setCmt(P, ref((I |-> sentinel)))))
+  =>   
+    fmaActK(K | stmt2(*)) .
+    
+  crl [E-CmtCollection] :
+    fmaActK(K | stmt2(setCmt(P, ref((I |-> oid(C,I2)) IS))))
+  =>   
+    fmaActK(K'' | stmt2(*))
+  if
+    fmaActK(K | stmt2(setCmt(P, val(oid(C,I2)))))
+    => 
+    fmaActK(K' | stmt2(*)) 
+  /\  
+    fmaActK(K' | stmt2(setCmt(P, ref(IS))))
+    => 
+    fmaActK(K'' | stmt2(*)) .
+  
+  crl [E-CmtUniSet] :
+    fmaActK(K | env(E) | model(iOS1) | focus(L) 
+      | ps(P = val(iOS (I2 |-> sentinel)), PS) 
+      | stmt2(setCmt(P, val(O))))  
+  => 
+    fmaActK(K | env(E') | model(iOS2) | focus(L) 
+      | ps(P = val((
+          if hasElement(iOS,Obj) then 
+            (iOS (I2 |-> sentinel)) 
+          else 
+            ((I2 |-> Obj) iOS ((I2 +N 1) |-> sentinel)) 
+          fi
+        )), PS) 
+      | stmt2(*))    
+  if
+    oid(MTN ! SC, OID) := deepestOid(L)
+  /\ 
+    hasOppositeRef(oe(MTN),biCmtEnd(MTN ! SC,P),sr(MTN)) == false 
+  /\
+    L' := E [[ O ]]  
+  /\
+    < iOS2 ; (I |-> Obj) > := unplug(iOS1, L')  
+  /\
+    E' := renamePathPrefix(L', (L . loc(P)), E) .
+  
+  --- when the object container has not been set           
+  crl [E-CmtBiSetInit] :
+    fmaActK(K | env(E) | model(iOS1) | focus(L) 
+    | ps(P = val(iOS (I2 |-> sentinel)), PS) 
+    | pendingActions((SAIS, (I3 |-> sentinel))) 
+    | stmt2(setCmt(P, val(O))))  
+  => 
+    fmaActK(K | env(E') | model(iOS2) | focus(L) 
+      | ps(P = val((if hasElement(iOS,Obj) then (iOS (I2 |-> sentinel)) else ((I2 |-> Obj) iOS ((I2 +N 1) |-> sentinel)) fi)), PS) 
+      | pendingActions((((I3) |-> set(O,P2,oid(MTN ! SC, OID))),SAIS, ((I3 +N 1) |-> sentinel))) 
+      | stmt2(*)
+    ) 
+  if
+    oid(MTN ! SC, OID) := deepestOid(L) --- new container
+  /\ 
+    biRefEnd(C2:QualifiedCid,P2) := getOppositeRef(oe(MTN),biCmtEnd(MTN ! SC,P),sr(MTN))  --- ensures the opposite is not a containment 
+  /\
+    L' := E [[ O ]] --- old location  L1 . O := E [[ O ]] --- 
+  /\
+  < iOS2 ; (I |-> Obj) > := unplug(iOS1, L')
+  /\
+    E' := renamePathPrefix(L', (L . loc(P)), E) .
+    
+  crl [E-CmtBiSet] :
+    fmaActK(K | env(E) | model(iOS1) | focus(L) 
+    | ps(P = val(iOS (I2 |-> sentinel)), PS) 
+    | pendingActions((SAIS,(I3 |-> sentinel))) 
+    | stmt2(setCmt(P, val(O))))  
+  => 
+    fmaActK(K | env(E') | model(iOS2) | focus(L) 
+    | ps(P = val((if hasElement(iOS,Obj) then (iOS (I2 |-> sentinel)) else ((I2 |-> Obj)((I2 +N 1) |-> sentinel) iOS) fi)), PS) 
+    | pendingActions(((I3 |-> unset(O,P2,O3)),((I3 + 1) |-> set(O,P2,oid(MTN ! SC, OID) )),SAIS,((I3 +N 1) |-> sentinel))) 
+    | stmt2(*)) 
+  if
+    oid(MTN ! SC, OID) := deepestOid(L) --- new container
+  /\ 
+    biRefEnd(C2:QualifiedCid,P2) := getOppositeRef(oe(MTN),biCmtEnd(MTN ! SC,P),sr(MTN)) --- ensures the opposite is not a containment 
+  /\
+    L' := E [[ O ]] --- old location  L1 . O := E [[ O ]] --- 
+  /\
+  < iOS2 ; (I |-> Obj) > := unplug(iOS1, L')
+  /\ 
+    O3 := getContainerOid(L')   --- old container
+  /\
+    E' := renamePathPrefix(L', (L . loc(P)), E) .
+  
+
+
+
+
+     
+  crl [E-ActLet] :
+    fmaActK(K 
+    | env(E) 
+    | model(iOS) 
+    | extExprK(EK:K)
+    | focus(L) 
+    | ps(PS) 
+    | stmt2(let X = EXPR in ACTS ))
+  => 
+    fmaActK(K' 
+    | env(E'') 
+    | model(iOS') 
+    | extExprK(EK:K)
+    | focus(L') 
+    | ps(PS') 
+    | stmt2(*))
+  if 
+    var(MVar2Val) loc(MOid2Loc) new(MCid2Oid) := E
+  /\  
+    exprK(EK:K | exprEnv(E) | expr(EXPR)) 
+    => 
+    exprK(output(V))
+  /\
+      fmaActK(K 
+        | env(var(insert(X,V,MVar2Val)) loc(MOid2Loc) new(MCid2Oid)) 
+        | model(iOS) 
+        | extExprK(EK:K)  
+        | focus(L) 
+        | ps(PS) 
+        | stmt2(ACTS)) 
+    =>
+      fmaActK(K' 
+      | env(var(MVar2Val') E') 
+      | model(iOS') 
+      | extExprK(EK:K)  
+      | focus(L') 
+      | ps(PS') 
+      | stmt2(*)) 
+  /\
+    E'' := var( ( MVar2Val, selectOids(diff(MVar2Val', MVar2Val)) ) )  E' .
+
+
+
+  crl [E-ActLetCreate] :
+    fmaActK(K | env(E) | model(iOS) | focus(L) | ps(PS) | stmt2(let X = create(P, C) in ACTS))
+  => 
+    fmaActK(K' | env(E'') | model(iOS') | focus(L') | ps(PS') | stmt2(*))
+  if 
+    var(MVar2Val) loc(MOid2Loc) new(MCid2Oid) := E
+  /\  
+    fmaActK(K | env(E) | model(iOS) | focus(L) | ps(PS) | stmt2(create(P, C)))
+    =>
+    fmaActK(K' | env(loc(MOid2LocNewObject) new(MCid2OidNewObject) E2) | model(iOS) | focus(L) | ps(PS2) | stmt2(*))
+  /\
+    (O |-> L2) := diff(MOid2LocNewObject, MOid2Loc)
+  /\
+      fmaActK(env(var(insert(X,val(O),MVar2Val)) loc(MOid2LocNewObject) new(MCid2OidNewObject)) | model(iOS) | focus(L) | ps(PS2) | stmt2(ACTS)) 
+    =>
+      fmaActK(env(var(MVar2Val') E') | model(iOS') | focus(L') | ps(PS') | stmt2(*)) 
+  /\
+    E'' := var( ( MVar2Val, selectOids(diff(MVar2Val', MVar2Val)) ) )  E' .
+
+
+  
+  crl [E-ActNext] : 
+    fmaActK(K1 | stmt2(* ; ACTS)) 
+  => 
+    fmaActK(K2 | stmt2(*)) 
+  if 
+    fmaActK(K1 | stmt2(ACTS)) 
+  => 
+    fmaActK(K2 | stmt2(*)) .
+
+  
+
+  vars ACT ACT' : SingletonActStmt .
+
+  crl [E-ActSeq] : 
+    fmaActK(K | stmt2(ACT ; ACTS2)) 
+  => 
+    fmaActK(K2 | stmt2( * )) 
+  if 
+    fmaActK(K | stmt2(ACT))
+  => 
+    fmaActK(K1 | stmt2( * )) 
+  /\
+    fmaActK(K1 | stmt2(ACTS2))
+  => 
+    fmaActK(K2 | stmt2( * )) .
+
+  
+
+  --- --------------------------------------------------
+  --- --------------------------------------------------
+  --- SOS FIRST-LEVEL STATEMENTS
+  --- --------------------------------------------------
+  --- --------------------------------------------------
+
+  --- --------------------------------------------------
+  --- CREATE
+
+  --- only makes sense when used within E-LetCreate
+  --- this rule creates a root object  
+  crl [E-CreateRoot] :
+    fmaK(K | env(E) | model(iOS1 (I |-> sentinel)) | stmt(create(C)))  
+  => 
+    fmaK(K | env(E') | model((I |-> { prop("_id") = val(O), PS1 }) iOS1 ((I +N 1) |-> sentinel)) | stmt( () )) 
+  if
+    C =/= (metamodel("") ! cid("")) 
+  /\ 
+    PS1 := default(C)
+  /\
+    O := E [ C ] 
+  /\ 
+    E' := insert(O, loc(O), insert(C, fresh(O), E)) . 
+    
+
+
+
+
+  
+  crl [E-Let] :
+    fmaK(K | env(E) | model(iOS) | extExprK(EK:K) | stmt(let X = EXPR in S ))
+  => 
+    fmaK(K' | env(E'') | model(iOS') | extExprK(EK:K) | stmt(()))
+  if 
+    var(MVar2Val) loc(MOid2Loc) new(MCid2Oid) := E
+  /\
+    exprK(EK:K | exprEnv(E) | expr(EXPR)) => exprK(output(V))
+  /\
+      fmaK(K | env(var(insert(X,V,MVar2Val)) loc(MOid2Loc) new(MCid2Oid)) | model(iOS) | extExprK(EK:K) | stmt(S)) 
+    =>
+      fmaK(K' | env(var(MVar2Val') E') | model(iOS') | extExprK(EK:K) | stmt(())) 
+  /\
+    E'' := var( ( MVar2Val, selectOids(diff(MVar2Val', MVar2Val)) ) )  E' .
+         
+
+
+  crl [E-LetCreate] :
+    fmaK(K | env(E) | model(iOS1) | stmt(let X = create(C) in S ))
+  => 
+    fmaK(K'' | env(E'') | model(iOS3) | stmt(()))
+  if 
+    var(MVar2Val) loc(MOid2Loc) new(MCid2Oid) := E
+  /\  
+    fmaK(K | env(E) | model(iOS1) | stmt(create(C)))
+    =>
+    fmaK(K' | env(loc(MOid2LocNewObject) new(MCid2OidNewObject) E2) | model(iOS2) | stmt(()))
+  /\
+    (O |-> L2) := diff(MOid2LocNewObject, MOid2Loc)
+  /\
+      fmaK(K' | env(var(insert(X,val(O),MVar2Val)) loc(MOid2LocNewObject) new(MCid2OidNewObject)) | model(iOS2) | stmt(S)) 
+    =>
+      fmaK(K'' | env(var(MVar2Val') E') | model(iOS3) | stmt(()))
+  /\
+    E'' := var( ( MVar2Val, selectOids(diff(MVar2Val', MVar2Val)) ) )  E' .
+
+
+
+
+  crl [E-Snapshot] :
+    fmaK(K | env(E) | model(iOS) | stmt(snapshot X { ACTS }))
+  => 
+    fmaK(K' | env(E') | model(iOS2) | stmt(()))
+  if
+    val(O) := E [ X ]    
+  /\
+    L' := E [[ O ]] 
+  /\
+    < iOS1 ; (I |-> Obj) > := unplug(iOS,L') 
+  /\
+      fmaActK(K | env(E) | model(iOS1) | focus(L') | ps(ps(Obj)) | pendingActions( (0 |-> sentinel) ) | stmt2(ACTS))
+    => 
+      fmaActK(K' | env(E') | model(iOS') | focus(L'') | ps(PS') | pendingActions(SAIS) | stmt2(*))
+  /\
+    < (I2 |-> { PS'' }) (I3 |-> sentinel) ; SAIS' > := resolveActionsInSubmodel(SAIS,E',(I |-> { PS' }) ((I +N 1) |-> sentinel), L')
+  /\
+
+    iOS2 := plug(iOS', I |-> { PS'' }, L')  
+  /\ 
+    iOS3 := resolveActions(SAIS',E',iOS2) .
+
+
+  
+  op isDef : [Location] -> Bool .
+  eq isDef(L) = true .
+  eq isDef(MaybeL:[Location]) = false [owise] .
+
+
+
+  sort ObjectActionPair .
+  op <_;_> : IObjectSet IActionSet -> ObjectActionPair .
+
+  --- resolves as many pending actions as possible in the submodel
+  --- GIVEN
+  ---   1. Action set: updates references, it does NOT set containments 
+  ---         (the hierarchical structure is not changed, 
+  ---         hence no need to make changes to the location store)
+  ---   2. Env: locations for the whole model
+  ---   3. IObject: hierarchical object to be updated 
+  ---   4. Location of the root object of the submodel
+  op resolveActionsInSubmodel : IActionSet Env IObjectSet Location -> ObjectActionPair .
+  --- base case: nothing to do
+  eq resolveActionsInSubmodel( I |-> sentinel, E, OS, L ) = < OS ; I |-> sentinel > .
+  --- owise: apply pending actions in the submodel
+  ceq resolveActionsInSubmodel( SAIS, loc(LOCM) E, OS, L ) =
+    applyActionsInSubmodel( SAIS, loc(LOCM') E, OS ) 
+  if 
+    LOCM' := selectTruncate(L, LOCM) [owise] .
+
+  --- GIVEN
+  ---   IActionSet: the order is inessential as simple actions do not change the structure
+  ---   Env:
+  ---      locations must 
+  ---      a) correspond to objects in the submodel (locations of objects in outer context not considered for the search to be efficient)
+  ---         we know that target references correspond to objects in the submodel because we are dealing with simple actions created
+  ---         when evaluating statements in the submodel
+  ---      b) be relative to the submodel (without the prefix corresponding to the location of the container)
+  ---   IObjectSet: submodel
+  --- THEN
+  ---   returns < submodel ; pending actions that could not be resolved >
+  ---   the the order in which actions are given is inessential
+  op applyActionsInSubmodel : IActionSet Env IObjectSet -> ObjectActionPair .
+  
+
+  --- base case: opposite is reference - set
+  ceq applyActionsInSubmodel( ((I3 |-> set(O1,P,O2)),SAIS), loc((O1 |-> L, LOCM)) E, iOS ) =
+    applyActionsInSubmodel(SAIS, loc((O1 |-> L, LOCM)) E,
+      plug(
+        OSCTX, 
+        (I |-> { P = ref(if hasElement(IS,O2) then IS (I2 |-> sentinel) else (I2 |-> O2) IS ((I2 +N 1) |-> sentinel) fi), PS }), 
+      L)
+    )
+  if 
+    < OSCTX ; (I |-> { P = ref(IS (I2 |-> sentinel)), PS }) > := unplug(iOS,L) .
+    
+  --- base case: opposite is reference - unset
+  ceq applyActionsInSubmodel( ((I3 |-> unset(O1,P,O2)),SAIS), loc((O1 |-> L, LOCM)) E, iOS ) =
+    applyActionsInSubmodel(SAIS, loc((O1 |-> L, LOCM)) E,
+      plug(
+        OSCTX, 
+        (I2 |-> { P = ref(IS), PS }), 
+        L
+      )
+    )
+  if 
+    < OSCTX ; (I2 |-> { P = ref((I2 |-> O2) IS), PS }) > := unplug(iOS,L) .
+
+  --- owise: includes base case (empty set) and induction step
+  eq applyActionsInSubmodel( SAIS, E, iOS ) = < iOS ; SAIS > [owise] .
+
+
+
+
+
+
+
+
+
+
+
+  --- resolves ALL pending actions in the whole model
+  --- setBiRefs(ROM,E,iOS) takes the map of updates ROM and applies it to the model iOS
+  --- E is required to get the locations of objects to be updated 
+  op resolveActions : IActionSet Env IObjectSet -> IObjectSet .
+  
+  --- base cases
+  eq resolveActions( empty, E, iOS ) = iOS .
+  eq resolveActions( (I1 |-> sentinel), E, iOS ) = iOS .
+  
+  --- set
+  ceq resolveActions( ((I3 |-> set(O1,P,O2)),SAIS), loc((O1 |-> L, LOCM)) E, iOS ) =
+    resolveActions(
+      SAIS, 
+      loc((O1 |-> L, LOCM)) E, 
+      plug(
+        OSCTX, 
+        (I |-> { P = ref(if hasElement(IS,O2) then (IS (I2 |-> sentinel)) else ((I2 |-> O2) (I2 +N 1 |-> sentinel) IS) fi), PS }), 
+        L
+      )
+    )
+  if 
+    < OSCTX ; (I |-> { P = ref(IS (I2 |-> sentinel)), PS }) > := unplug(iOS,L) .
+    
+  --- unset
+  ceq resolveActions( ((I3 |-> unset(O1,P,O2)),SAIS), loc((O1 |-> L, LOCM)) E, iOS ) =
+    resolveActions(
+      SAIS, 
+      loc((O1 |-> L, LOCM)) E,
+      plug(OSCTX, (I2 |-> { P = ref(IS), PS }), L)
+    )
+  if 
+    < OSCTX ; (I2 |-> { P = ref((I2 |-> O2) IS), PS }) > := unplug(iOS,L) .
+    
+    
+  crl [E-Snapshot2] :
+    fmaActK(K | env(E) | model(iOS) | focus(L) | ps(PS) | pendingActions(SAIS) | stmt2(snapshot2 X { ACTS }))
+  => 
+    fmaActK(K' | env(E') | model(iOS') | focus(L) | ps(PS') | pendingActions(SAIS') | stmt2(*))
+  if
+    val(O) := E [ X ]    
+  /\
+    L' := E [[ O ]] 
+  /\
+    < iOS1 ; I |-> { PS1 } > := unplug(0 |-> { PS } , L')   --- <--- we unplug submodel from object
+  /\
+      fmaActK(K | env(E) | model(iOS) | focus(L') | ps(PS1) | pendingActions(SAIS) | stmt2(ACTS))    
+    => 
+      fmaActK(K' | env(E') | model(iOS') | focus(L'') | ps(PS2) | pendingActions(SAIS') | stmt2(*))
+  /\ 
+    0 |-> { PS' } := plug(iOS1, I |-> { PS2 }, L') . --- <--- we plug submodel into object
+
+
+
+  crl [E-StmtNext] : 
+    fmaK(K1 | stmt(() ; S)) 
+  => 
+    fmaK(K2 | stmt( () )) 
+  if 
+    fmaK(K1 | stmt( S )) 
+  => 
+    fmaK(K2 | stmt( () )) .
+  
+
+  crl [E-StmtSeq] : 
+    fmaK(K | stmt(S1:SingletonStmt ; S2)) 
+  => 
+    fmaK(K2 | stmt( () ))
+  if 
+    fmaK(K | stmt(S1:SingletonStmt))
+  => 
+    fmaK(K1 | stmt( () )) 
+  /\
+    fmaK(K1 | stmt(S2)) 
+  => 
+    fmaK(K2 | stmt( () )) .
+
+ 
+  
+endm

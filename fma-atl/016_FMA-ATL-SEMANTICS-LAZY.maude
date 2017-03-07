@@ -1,0 +1,1498 @@
+mod FMA-ATL-TYPE-INFERENCE is
+  extending FMA-ATL-SYNTAX .
+  
+  
+endm
+
+mod FMA-ATL-TYPE-CHECKER is
+  protecting FMA-ATL-TYPE-INFERENCE .
+  
+endm
+
+
+
+mod FMA-ATL-SEMANTICS is
+  including FMA-ATL-TYPE-CHECKER .
+  including EMF-GRAPH .
+  
+
+
+  --- --------------------------------------------------------------------------	
+  --- rule environment
+  
+  
+  sorts AtlKWrapper .
+  
+  op atlK : K -> AtlKWrapper .
+  op atlMatchingK : K -> AtlKWrapper .
+  op atlDomainK : K -> AtlKWrapper .
+  op atlInit : K -> AtlKWrapper .
+
+
+
+
+  --- required for evaluating ATL binding expressions (resolveTemp)
+  op exprTrace : Map{LinkSource,LinkTarget} -> K .
+  
+
+
+
+  --- --------------------------------------------------------------------------	
+  --- Multiple domains
+  
+  --- variable must be typed with a metamodel and corresponds to model name
+  --- model
+  --- new map (factory of oids)
+  --- location map  
+  op domain : VarExpr IObjectSet Map{QualifiedCid,Oid} Map{Oid,Location} -> K .
+  
+  --- PROJECTORS
+  op getDomainModel : VarExpr AtlKWrapper -> IObjectSet .
+  eq getDomainModel( V:VarExpr, atlK(K:K | domain(V:VarExpr, OS:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location}) ) ) = OS:IObjectSet .
+
+  
+  op getEnv : VarExpr AtlKWrapper -> Env .
+  eq getEnv( 
+  	V:VarExpr, 
+  	atlK(K:K | domain(V:VarExpr, OS:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location}) ) 
+  ) = var(empty) new(NEW:Map{QualifiedCid,Oid}) loc(LOC:Map{Oid,Location}) .
+
+  
+
+  op atlStmt : AtlTrafoStmt -> K [ctor] .
+  op atlStmt : RuleDeclListAtlStmt -> K [ctor] .
+  op atlStmt : AtlProcDecl -> K [ctor] .
+
+  sorts AtlRule AtlRuleSet .
+  subsort AtlRule < AtlRuleSet .
+  op __ : AtlRuleSet AtlRuleSet -> AtlRuleSet [ctor comm assoc id: noAtlRule] .
+  op noAtlRule : -> AtlRuleSet .
+
+  --- name, 
+  --- context
+  --- var of LHS
+  --- var of MODEL NAME 
+  --- match filter
+  --- FMA stmt for creating tree of objects
+  --- unused
+  --- FMA stmt for creating link
+  --- op atlRule : ProcName QualifiedCid VarExpr Expr Stmt Stmt Stmt -> AtlRule [ctor] .
+  op atlRule : ProcName QualifiedCid VarExpr VarExpr Expr DomainStmtSet -> AtlRule [ctor] .
+  op atlLazyRule : ProcName QualifiedCid VarExpr VarExpr Expr DomainStmtSet -> AtlRule [ctor] .
+  op atlUniqueLazyRule : ProcName QualifiedCid VarExpr VarExpr Expr DomainStmtSet -> AtlRule [ctor] .
+
+  sort DomainStmt DomainStmtSet .
+  subsort DomainStmt < DomainStmtSet .
+  --- model name
+  --- TREE creation stmt
+  --- GRAPH INTIALIZATION stmt
+  --- TRACE update stmt
+  op domainStmt : VarExpr Stmt Stmt TraceStmt -> DomainStmt [ctor] .
+  op __ : DomainStmtSet DomainStmtSet -> DomainStmtSet [ctor assoc comm id: noDomainStmt] .
+  op noDomainStmt : -> DomainStmtSet .
+
+  op ruleStore : AtlRuleSet -> K [ctor] .
+
+
+
+
+
+  --- --------------------------------------------------------------------------  
+  --- --------------------------------------------------------------------------  
+  --- ATL TRACE INTERPRETER
+  --- --------------------------------------------------------------------------  
+  --- --------------------------------------------------------------------------
+
+  --- TRACE INTERPRETER SEMANTICS
+  
+  --- configuration components
+  sort TraceKWrapper .
+  op traceK : K -> TraceKWrapper .
+
+  --- global map (used in resolveTemp), local map
+  op trace : Map{LinkSource,LinkTarget} Map{LinkSource,LinkTarget} -> K .
+  --- env is also used
+  op stmt : TraceStmt -> K .
+
+  sort QualifiedCidSet .
+  op noQC : -> QualifiedCidSet [ctor] .
+  op _c_ : QualifiedCidSet QualifiedCidSet -> QualifiedCidSet [ctor assoc comm id: noQC] .
+  subsort QualifiedCid < QualifiedCidSet .
+
+  op resolveTempClasses : QualifiedCidSet -> K .
+
+  op isLocal : QualifiedCid QualifiedCidSet -> Bool .
+  eq isLocal(QC, QC c QCS:QualifiedCidSet) = false .
+  eq isLocal(QC, QCS:QualifiedCidSet) = true [owise] .
+
+  var TrS : TraceStmt .
+  var SVAR TVAR : VarExpr .
+  var VAL SVAL TVAL RN TVARNAME : ValueExpr . 
+  var SO TO : Oid .
+  var VM : Map{VarExpr,ValueExpr} .
+  vars K1 K2 : K .
+  var OTLM OTLM' GlobalM LocalM GlobalM1 LocalM1 GlobalM2 LocalM2 GlobalM3 LocalM3 : Map{LinkSource,LinkTarget} . 
+  var QC : QualifiedCid .
+  var OID : Int .
+
+  
+  rl [E-TraceStmt-InsertTraceLink-Global] :
+    traceK(
+      K 
+      | env(var((SVAR |-> val(oid(QC,OID)), TVAR |-> val(TO), VM)) E) 
+      | trace(GlobalM,LocalM) 
+      | resolveTempClasses( QC c QCS:QualifiedCidSet ) 
+      | stmt( insertTraceLink(SVAR,RN,TVARNAME,TVAR) )
+    )  
+  => 
+    traceK(
+      K 
+      | env(var((SVAR |-> val(oid(QC,OID)), TVAR |-> val(TO), VM)) E) 
+      | trace(
+        ((linkSource(oid(QC,OID),TVARNAME) |-> linkTarget(RN,TO)), GlobalM),
+        LocalM
+      ) 
+      | resolveTempClasses( QC c QCS:QualifiedCidSet ) 
+      | stmt( tUnit )
+    ) .
+
+  crl [E-TraceStmt-InsertTraceLink-Local] :
+    traceK(
+      K 
+      | env(var((SVAR |-> val(oid(QC,OID)), TVAR |-> val(TO), VM)) E) 
+      | trace(GlobalM,LocalM) 
+      | resolveTempClasses( QCS:QualifiedCidSet ) 
+      | stmt( insertTraceLink(SVAR,RN,TVARNAME,TVAR) )
+    )  
+  => 
+    traceK(
+      K 
+      | env(var((SVAR |-> val(oid(QC,OID)), TVAR |-> val(TO), VM)) E) 
+      | trace(
+        GlobalM,
+        ((linkSource(oid(QC,OID),TVARNAME) |-> linkTarget(RN,TO)), LocalM)
+      ) 
+      | resolveTempClasses( QCS:QualifiedCidSet ) 
+      | stmt( tUnit )
+    ) 
+  if 
+    isLocal(QC, QCS:QualifiedCidSet) .
+
+  crl [E-TraceStmtNext] : 
+    traceK(K1 | stmt(tUnit ; TrS)) 
+  => 
+    traceK(K2 | stmt( tUnit )) 
+  if 
+    traceK(K1 | stmt( TrS )) 
+  => 
+    traceK(K2 | stmt( tUnit )) .
+  
+  crl [E-TraceStmtSeq] : 
+    traceK(K | stmt(TrS1:SingletonTraceStmt ; TrS)) 
+  => 
+    traceK(K2 | stmt( tUnit ))
+  if 
+    traceK(K | stmt(TrS1:SingletonTraceStmt))
+  => 
+    traceK(K1 | stmt( tUnit )) 
+  /\
+    traceK(K1 | stmt(TrS)) 
+  => 
+    traceK(K2 | stmt( tUnit )) .
+
+
+
+  --- --------------------------------------------------------------------------  
+  --- --------------------------------------------------------------------------  
+  --- ATL TRAFO MODULE
+  --- --------------------------------------------------------------------------  
+  --- --------------------------------------------------------------------------
+
+ 
+  --- with matching phase: precomputes matches
+  crl [E-AtlTrafoDecl] : 
+    atlInit(
+      K1:K 
+      | queryDomain(MODEL:VarExpr, M:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location})  
+      | atlStmt( module MTN:String ; TH:TrafoHeaderAtlStmt RDL:RuleDeclListAtlStmt HDL:EnvP )
+    ) 
+  =>
+    atlMatchingK(
+      K3:K 
+      | ruleStore( ARS:AtlRuleSet ) 
+      | match(noMatch) 
+      | matchPool( findMatches( ARS:AtlRuleSet, M:IObjectSet, var(empty) new(NEW:Map{QualifiedCid,Oid}) loc(LOC:Map{Oid,Location}) ) )
+    )
+  if 
+    atlInit(
+      K1:K 
+      | queryDomain(MODEL:VarExpr, M:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location})  
+      | atlStmt( RDL:RuleDeclListAtlStmt )
+    ) 
+    =>
+    atlInit(
+      K2:K 
+      | atlStmt( noAtlRuleDecl )
+    )  
+  /\
+    atlInit(
+      K2:K 
+      | atlStmt( HDL:EnvP )
+    ) 
+    =>
+    atlInit(
+      K3:K 
+      | atlStmt( empty )
+      | ruleStore( ARS:AtlRuleSet )
+    ) .
+
+
+
+
+
+
+  --- --------------------------------------------------------------------------  
+  --- --------------------------------------------------------------------------  
+  --- ATL RULE DECLARATION  
+  --- --------------------------------------------------------------------------  
+  --- --------------------------------------------------------------------------
+  --- rules are compiled to an internal representation where side effects
+  --- are specified as sequences of FMA statements, augmented with some ATL commands
+  --- 
+  --- the compilation of ATL rules consists in 
+  --- 1. compileOutVar: obtains an EMF graph representing side effects 
+  ---           in the RHS of a rule (for each vble binding)
+  --- 2. getDomainStmtSet: obtains a domainStmt tuple containing satements for
+  --- a) matching phase: creating the tree and the trace model 
+  --- b) graph intialization: setting the attributes/references of objects 
+
+  --- inserts rules in the rule store
+  rl [E-AtlRuleDecl] : 
+    atlInit(K:K | ruleStore(ARS:AtlRuleSet) 
+    | atlStmt((rule RN:ProcName {from V:VarExpr : C:QualifiedCid in MN:VarExpr ( ME:Expr ) U:UsingAtlRuleExpr? to OVL:OutVarDeclListAtlRuleExpr }) RLS:RuleDeclListAtlStmt)) 
+  =>
+    atlInit(
+      K:K | ruleStore(ARS:AtlRuleSet (
+        atlRule(
+          RN:ProcName, 
+          C:QualifiedCid, 
+          V:VarExpr, 
+          MN:VarExpr, 
+          ME:Expr, 
+          getDomainStmtSet( RN:ProcName, compileOutVar( OVL:OutVarDeclListAtlRuleExpr ), V:VarExpr )
+        )
+      )) | atlStmt(RLS:RuleDeclListAtlStmt) 
+  ) .
+  
+  rl [E-AtlLazyRuleDecl] : 
+    atlInit(K:K | ruleStore(ARS:AtlRuleSet) 
+    | atlStmt((lazy rule RN:ProcName {from V:VarExpr : C:QualifiedCid in MN:VarExpr ( ME:Expr ) U:UsingAtlRuleExpr? to OVL:OutVarDeclListAtlRuleExpr }) RLS:RuleDeclListAtlStmt)) 
+  =>
+    atlInit(
+      K:K | ruleStore(ARS:AtlRuleSet (
+        atlLazyRule(
+          RN:ProcName, 
+          C:QualifiedCid, 
+          V:VarExpr, 
+          MN:VarExpr, 
+          ME:Expr, 
+          getDomainStmtSet( RN:ProcName, compileOutVar( OVL:OutVarDeclListAtlRuleExpr ), V:VarExpr )
+        )
+      )) | atlStmt(RLS:RuleDeclListAtlStmt) 
+  ) .
+
+  rl [E-AtUniquelLazyRuleDecl] : 
+    atlInit(K:K | ruleStore(ARS:AtlRuleSet) 
+    | atlStmt((unique lazy rule RN:ProcName {from V:VarExpr : C:QualifiedCid in MN:VarExpr ( ME:Expr ) U:UsingAtlRuleExpr? to OVL:OutVarDeclListAtlRuleExpr }) RLS:RuleDeclListAtlStmt)) 
+  =>
+    atlInit(
+      K:K | ruleStore(ARS:AtlRuleSet (
+        atlUniqueLazyRule(
+          RN:ProcName, 
+          C:QualifiedCid, 
+          V:VarExpr, 
+          MN:VarExpr, 
+          ME:Expr, 
+          getDomainStmtSet( RN:ProcName, compileOutVar( OVL:OutVarDeclListAtlRuleExpr ), V:VarExpr )
+        )
+      )) | atlStmt(RLS:RuleDeclListAtlStmt) 
+  ) .
+
+  --- whole graph obtained by compileOutVar
+  --- object variable used in LHS 
+  --- given 
+  --- 	1. rule name
+  ---	2. EMF graph representing side effects
+  ---	3. LHS variable (source)
+  --- return
+  ---	set of domainStmt tuples containing FMA statements
+  op getDomainStmtSet : ProcName EmfGraph VarExpr -> DomainStmtSet .
+  eq getDomainStmtSet( RN:ProcName, EG:EmfGraph, V:VarExpr ) = 
+  	getDomainStmtSet(RN:ProcName, getDomainNames(RN:ProcName, EG:EmfGraph,noDomainStmt), EG:EmfGraph, V:VarExpr, noDomainStmt) .
+  	
+  	
+  --- given
+  ---	1. rule name
+  ---	2. EMF graph (RHS of rule, describing side effects) 
+  ---	3. set of domain statements
+  --- then
+  ---	return an initial set with domainStmt's, whose statements are empty 
+  op getDomainNames : ProcName EmfGraph DomainStmtSet -> DomainStmtSet .
+  eq getDomainNames( RN:ProcName, emfGraph( empty, ES:Set{EmfEdge} ), DSS:DomainStmtSet ) = DSS:DomainStmtSet .
+  --- a domain statement has been added for the node being processed, skip the node
+  eq getDomainNames( RN:ProcName, 
+  	emfGraph( (node(C:QualifiedCid,MN:VarExpr,O:VarExpr), NS:Set{EmfNode}), ES:Set{EmfEdge} ), 
+  	domainStmt(MN:VarExpr,TREE:Stmt,GRAPH:Stmt,TRACE:TraceStmt) DSS:DomainStmtSet 
+  ) =
+    getDomainNames( RN:ProcName, 
+      emfGraph(NS:Set{EmfNode}, ES:Set{EmfEdge}), 
+      domainStmt(MN:VarExpr,TREE:Stmt,GRAPH:Stmt,TRACE:TraceStmt) DSS:DomainStmtSet 
+    ) .
+  --- for each node whithout a domain, add a domainStmt
+  eq getDomainNames( RN:ProcName, emfGraph( (node(C:QualifiedCid,MN:VarExpr,O:VarExpr), NS:Set{EmfNode}), ES:Set{EmfEdge} ), DSS:DomainStmtSet ) =
+    getDomainNames( 
+      RN:ProcName, 
+      emfGraph(NS:Set{EmfNode}, ES:Set{EmfEdge}), 
+      DSS:DomainStmtSet domainStmt(MN:VarExpr,(),(),tUnit) 
+    ) [owise] .
+  
+  
+  
+  --- given
+  ---	1. rule name
+  ---	2. set of initial domain statements (with no statements)
+  ---	3. emf graph representing RHS of rule
+  ---	4. LHS variable (source)
+  ---	5. set of final domain statements (initially empty)
+  --- then
+  ---	return the set of domain statements 
+  op getDomainStmtSet : ProcName DomainStmtSet EmfGraph VarExpr DomainStmtSet -> DomainStmtSet .
+  eq getDomainStmtSet(RN:ProcName, noDomainStmt, EG:EmfGraph, V:VarExpr, DSS2:DomainStmtSet) = DSS2:DomainStmtSet .
+
+
+  eq getDomainStmtSet(RN:ProcName, D:DomainStmt DSS:DomainStmtSet, EG:EmfGraph, V:VarExpr, DSS2:DomainStmtSet) =
+  	 getDomainStmtSet(
+  	 	RN:ProcName,
+  	 	DSS:DomainStmtSet, 
+  	 	EG:EmfGraph, 
+  	 	V:VarExpr, 
+  	 	DSS2:DomainStmtSet compileDomainStmt( RN:ProcName, D:DomainStmt, EG:EmfGraph, V:VarExpr )
+  	 ) .
+  	   	 
+  --- given
+  ---	1. rule name
+  ---	2. initial domain statement: domain stmt without stmts
+  ---	3. emf graph representing RHS of rule
+  ---	4. var of the binding being processed
+  --- then
+  ---	return a domain statement with statements
+  op compileDomainStmt : ProcName DomainStmt EmfGraph VarExpr -> DomainStmt .
+  eq compileDomainStmt( RN:ProcName, domainStmt(MN:VarExpr,TREE:Stmt,GRAPH:Stmt,TRACE:TraceStmt), EG:EmfGraph, V:VarExpr ) =
+    domainStmt(
+      MN:VarExpr,    
+      getFmaObjectTree( EG:EmfGraph ), --- TREE
+      ---;    getFmaObjectGraph( C:EmfGraph ), --- GRAPH
+      (),
+      getTraceStmt( RN:ProcName, MN:VarExpr, V:VarExpr, EG:EmfGraph )  --- TRACES
+    ) .
+     
+
+  --- --------------------------------------------------------------------------
+  --- GENERATION OF GRAPH OF RHS (side effects)
+  --- --------------------------------------------------------------------------
+
+
+  --- generates an EMF graph with all the objects in the RHS pattern
+  op compileOutVar : OutVarDeclListAtlRuleExpr -> EmfGraph .
+  eq compileOutVar( OVL:OutVarDeclListAtlRuleExpr ) = 
+    extractCmtPoset(
+      compileOutVar( OVL:OutVarDeclListAtlRuleExpr, emfGraph(empty,empty) ) 
+    ) .
+  
+  op compileOutVar : OutVarDeclListAtlRuleExpr EmfGraph -> EmfGraph .
+  eq compileOutVar( 
+    (S:VarExpr : (MTN:ModelTypeName ! C:Cid) in MN:VarExpr ( BL:BindingListAtlRuleExpr )),
+    emfGraph( NS:Set{EmfNode}, ES:Set{EmfEdge} ) 
+  ) =
+    compileBindingList( MTN:ModelTypeName ! C:Cid, S:VarExpr, BL:BindingListAtlRuleExpr, 
+    emfGraph( 
+      (node(MTN:ModelTypeName ! C:Cid, MN:VarExpr, S:VarExpr), NS:Set{EmfNode}), 
+      ES:Set{EmfEdge} 
+    )
+  ) .
+  eq compileOutVar( 
+    ((S:VarExpr : MTN:ModelTypeName ! C:Cid in MN:VarExpr ( BL:BindingListAtlRuleExpr )) , OVL:OutVarDeclListAtlRuleExpr),
+    emfGraph( NS:Set{EmfNode}, ES:Set{EmfEdge} ) 
+  ) =
+    compileBindingList( MTN:ModelTypeName ! C:Cid, S:VarExpr, BL:BindingListAtlRuleExpr, 
+      compileOutVar(
+        OVL:OutVarDeclListAtlRuleExpr,
+        emfGraph( 
+          (node(MTN:ModelTypeName ! C:Cid, MN:VarExpr, S:VarExpr), NS:Set{EmfNode}), 
+          ES:Set{EmfEdge} 
+        )
+      )
+    ) .
+    
+    
+    
+  --- compiles BindingAtlRuleExpr to edges where
+  ---	source: variables
+  ---	target: FMA expression or FMA statement
+  op compileBindingList : QualifiedCid VarExpr BindingAtlRuleExpr EmfGraph -> EmfGraph .
+  
+  eq compileBindingList( C:QualifiedCid, S:VarExpr, noBinding, EG:EmfGraph ) = EG:EmfGraph .  
+  
+  ceq compileBindingList( C:QualifiedCid, S:VarExpr, ((P:PropName <- E:Expr), BL:BindingListAtlRuleExpr), EG:EmfGraph ) = 
+	compileBindingList( C:QualifiedCid, S:VarExpr, BL:BindingListAtlRuleExpr, 
+		compileBindingList( C:QualifiedCid, S:VarExpr, P:PropName <- E:Expr, EG:EmfGraph )
+	) 
+  if BL:BindingListAtlRuleExpr =/= noBinding .
+  
+  --- reference or attribute
+  ceq compileBindingList( C:QualifiedCid, S:VarExpr, (P:PropName <- E:Expr), emfGraph( NS:Set{EmfNode}, ES:Set{EmfEdge} ) ) = 
+	emfGraph( NS:Set{EmfNode}, (edge(S:VarExpr, P:PropName, compileToFma(E:Expr)), ES:Set{EmfEdge}) )
+  if 
+  	not(isCont(P:PropName, cl(C:QualifiedCid))) . 
+  --- /\ 
+  ---	not(hasOppositeRef(oe(getMetamodelName(C:QualifiedCid)), biRefEnd(C:QualifiedCid,P:PropName), sr(getMetamodelName(C:QualifiedCid)))) .
+  
+  
+  op compileToFma : Expr -> Expr .
+  eq compileToFma( E:Expr ) = E:Expr .
+  
+  
+  --- opposite is containment: we use the opposite in order to facilitate creation of objects
+  --- caveat: it will only work with variables
+  ceq compileBindingList( C:QualifiedCid, S:VarExpr, (P:PropName <- T:VarExpr), emfGraph( NS:Set{EmfNode}, ES:Set{EmfEdge} ) ) = 
+  	emfGraph( NS:Set{EmfNode}, (cmt(T:VarExpr, P2:PropName, S:VarExpr), ES:Set{EmfEdge}) )
+  if 
+  	not(isCont(P:PropName, cl(C:QualifiedCid))) 
+  /\ 
+  	biCmtEnd(C2:QualifiedCid,P2:PropName) := getOppositeRef(oe(getMetamodelName(C:QualifiedCid)), biRefEnd(C:QualifiedCid,P:PropName), sr(getMetamodelName(C:QualifiedCid))) .
+  
+  --- containment
+  ceq compileBindingList( C:QualifiedCid, S:VarExpr, (P:PropName <-  E:Expr), emfGraph( NS:Set{EmfNode}, ES:Set{EmfEdge} ) ) = 
+  	emfGraph( NS:Set{EmfNode}, (cmt(S:VarExpr, P:PropName, E:Expr), ES:Set{EmfEdge}) )
+  if isCont(P:PropName, cl(C:QualifiedCid)) .
+
+  
+ 
+  op isCont : PropName Record -> Bool .
+  eq isCont( P:PropName, (P:PropName :t C2:QualifiedCid) R:Record ) = true .
+  eq isCont( P:PropName, R:Record ) = false [owise] .
+
+
+
+
+
+
+  --- --------------------------------------------------------------------------  
+  --- --------------------------------------------------------------------------  
+  --- PROCEDURE DECLARATIONS: AtlHelper, AtlAttibute
+  --- --------------------------------------------------------------------------  
+  --- --------------------------------------------------------------------------
+  
+    
+  --- E-AtlHelperContextDecl
+  ---   moves the helper declaration from statements to the proc environment
+  ---   we are reusing EnvP, which is a semantic component, for modelling syntax
+  ---   as well
+  
+  rl [E-AtlHelperContextDecl] : 
+    atlInit(
+      K:K 
+      | procEnv( EnvP:EnvP ) 
+      | atlStmt( AHD:AtlHelperDecl EnvP2:EnvP )
+    ) 
+  =>
+    atlInit(
+      K:K 
+      | procEnv( EnvP:EnvP AHD:AtlHelperDecl )
+      | atlStmt( EnvP2:EnvP )
+  ) .
+
+  --- E-AtlHelperNoContextDecl
+  --- E-AtlAttributeContextDecl
+
+
+  op atlAttribute : ProcName ValueExpr -> AtlAttributeDecl .
+
+  
+  crl [E-AtlAttributeNoContextDecl] : 
+    atlInit(
+      K:K 
+      | queryDomain(MODEL:VarExpr, M:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location})  
+      | procEnv( EP:EnvP ) 
+      | atlStmt( (helper def : PN:ProcName : T:Scalar = EXPR:Expr ;)  EnvP2:EnvP )
+    ) 
+  =>
+    atlInit(
+      K:K 
+      | queryDomain(MODEL:VarExpr, M:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location})  
+      | procEnv( EP:EnvP atlAttribute(PN:ProcName,VAL:ValueExpr) )
+      | atlStmt( EnvP2:EnvP )
+  ) if
+    exprK(
+      exprModel(MODEL:VarExpr, M:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location})  
+      | exprEnv( var(empty) )
+      | procEnv( EP:EnvP)
+      | expr(EXPR:Expr) 
+      | exprTrace(empty)
+    )
+  => 
+    exprK(output(VAL:ValueExpr)) .
+
+
+
+  --- --------------------------------------------------------------------------  
+  --- --------------------------------------------------------------------------  
+  --- RULE SCHEDULING
+  --- --------------------------------------------------------------------------  
+  --- --------------------------------------------------------------------------
+  crl [E-AtlRuleSchedule] :
+    atlMatchingK( 
+      K:K 
+      | queryDomain(MODEL:VarExpr, M:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location})  
+      --- used for lazy rules       
+      | domain(OUT:VarExpr, OUTM:IObjectSet, OUTNEW:Map{QualifiedCid,Oid}, OUTLOC:Map{Oid,Location})  
+      | ruleStore(  
+      atlRule(
+        RN:ProcName, 
+        C:QualifiedCid, 
+        V:VarExpr,
+        MODEL2:VarExpr, --- deprecated as we use queryDomain: was used to select domain
+        (DSL#Bool) OCLE:OclExp, 
+      DSS:DomainStmtSet
+      )  
+      ARS:AtlRuleSet    
+      )
+      | match( noMatch )
+      | matchPool( match(RN:ProcName, (V:VarExpr |-> val(O:Oid), SUBS:Map{VarExpr,ValueExpr})) MP:MatchPool )
+  ) 
+  =>
+    atlMatchingK(
+      K':K 
+      | queryDomain(MODEL:VarExpr, M:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location})  --- <--- restore original model
+      --- used for lazy rules       
+      | domain(OUT:VarExpr, concat(OUTM:IObjectSet, OUTM2:IObjectSet), OUTNEW2:Map{QualifiedCid,Oid}, (OUTLOC:Map{Oid,Location}, OUTLOC2:Map{Oid,Location}) )  
+      | match( noMatch ) 
+      | matchPool( disableMatch(MP:MatchPool, O:Oid) )
+    )   
+  if
+    --- the root container of the matched object is used as the domain context
+    L2:Location := LOC:Map{Oid,Location} [ O:Oid ]
+  /\
+    L:Location := loc(rootOid(L2:Location))
+  /\
+    < Cxt:IObjectSet ; (I:Int |-> Obj:Object) > := unplug(M:IObjectSet, L:Location)  
+  /\
+    atlK(
+      K:K 
+
+        | queryDomain(
+          MODEL:VarExpr, 
+          ((0 |-> Obj:Object)(1 |-> sentinel)), --- <--- restrict query domain to matched object
+          NEW:Map{QualifiedCid,Oid}, 
+          selectTruncate(L:Location,LOC:Map{Oid,Location}) --- <--- this operation is linear in the size of the map (not a problem)
+        )  
+        --- used for lazy rules  
+        | domain(OUT:VarExpr, 0 |-> sentinel, OUTNEW:Map{QualifiedCid,Oid}, empty)  --- <-- output model is built from scratch
+        | ruleStore(  
+            atlRule(
+              RN:ProcName, 
+              C:QualifiedCid, 
+              V:VarExpr,
+              MODEL2:VarExpr, --- deprecated as we use queryDomain: was used to select domain
+              (DSL#Bool) OCLE:OclExp, 
+              DSS:DomainStmtSet
+            )  
+            ARS:AtlRuleSet    
+          )
+        | match( match(RN:ProcName, (V:VarExpr |-> val(O:Oid), SUBS:Map{VarExpr,ValueExpr})) ) 
+      ) 
+    => 
+    atlK(
+      K':K 
+      | queryDomain(MODEL:VarExpr, M2:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC2:Map{Oid,Location})  
+      --- used for lazy rules      
+      | domain(OUT:VarExpr, OUTM2:IObjectSet, OUTNEW2:Map{QualifiedCid,Oid}, OUTLOC2:Map{Oid,Location})  
+      | match( noMatch )
+    ) .    
+
+   
+
+ 
+  --- this rule prepares the side effects (FMA statements) for each domain
+  --- given a match (rule, substitution)
+  --- its sole purpose is to decouple matching from side effects
+  --- so that we can execute rules with a given match
+  crl [E-AtlRuleSideEffects] :
+    atlK( 
+      K:K 
+      | procEnv(EP:EnvP) 
+      | queryDomain(MODEL:VarExpr, M:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location})  
+      | ruleStore(  
+      atlRule(
+        RN:ProcName, 
+        C:QualifiedCid, 
+        V:VarExpr,
+        MODEL2:VarExpr,
+        (DSL#Bool) OCLE:OclExp, 
+      DSS:DomainStmtSet
+      )  
+      ARS:AtlRuleSet    
+      )
+      | match( match(RN:ProcName, SUBS:Map{VarExpr,ValueExpr}) )
+  ) 
+  =>
+    atlK(
+      K':K 
+      | procEnv(EP:EnvP) 
+      | match( noMatch )
+   )   
+  if 
+    atlDomainK(
+      K:K 
+      | procEnv(EP:EnvP) 
+      | queryDomain(MODEL:VarExpr, M:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location})
+      | ruleStore(  
+      atlRule(
+        RN:ProcName, 
+        C:QualifiedCid, 
+        V:VarExpr,
+        MODEL2:VarExpr, 
+        (DSL#Bool) OCLE:OclExp, 
+      DSS:DomainStmtSet
+      )  
+      ARS:AtlRuleSet    
+      )
+      | env(var(SUBS:Map{VarExpr,ValueExpr})) 
+      | actions(DSS:DomainStmtSet)
+      --- | match( noMatch )
+  ) 
+    => 
+    atlDomainK(
+      K':K 
+      | procEnv(EP:EnvP) 
+      | env(E:Env) 
+      | actions( noDomainStmt )
+    ) .
+
+
+  crl [E-AtlRuleDomainActions] :
+    atlDomainK(
+      K:K
+      | ruleStore( ARS:AtlRuleSet )
+      | procEnv(EP:EnvP)
+      | queryDomain(IN:VarExpr, INM:IObjectSet, INNEW:Map{QualifiedCid,Oid}, INLOC:Map{Oid,Location})
+      | trace(GlobalM1,LocalM1)
+      | env(E:Env)
+      | resolveTempClasses(QCS:QualifiedCidSet)
+      | domain(MODEL:VarExpr, M:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location}) 
+      --- we only consider one target domain
+      | actions(domainStmt(MODEL:VarExpr, TREE:Stmt, GRAPH:Stmt, TRACE:TraceStmt) )  
+  )
+  =>
+    atlDomainK(
+      K:K 
+      | ruleStore( ARS:AtlRuleSet )
+      | procEnv(EP:EnvP)
+      | queryDomain(IN:VarExpr, INM:IObjectSet, INNEW:Map{QualifiedCid,Oid}, INLOC:Map{Oid,Location})
+      | trace(
+          (GlobalM2, GlobalM3),       --- GlobalM2 contains GlobalM1
+          (LocalM1, LocalM2, LocalM3) --- <--- append new links
+        )            
+      | env(E2:Env)  --- only vbles
+      | resolveTempClasses(QCS:QualifiedCidSet)
+      | domain(MODEL:VarExpr, M2:IObjectSet, NEW2:Map{QualifiedCid,Oid}, LOC2:Map{Oid,Location}) 
+      | actions( noDomainStmt )
+  )
+  if    
+    fmaK(
+      extExprK( 
+        exprModel(IN:VarExpr, INM:IObjectSet, INNEW:Map{QualifiedCid,Oid}, INLOC:Map{Oid,Location})
+        | exprTrace(GlobalM1)
+        | procEnv(EP:EnvP)
+      )
+      | extAtlK(
+        queryDomain(IN:VarExpr, INM:IObjectSet, INNEW:Map{QualifiedCid,Oid}, INLOC:Map{Oid,Location})
+        | domain(MODEL:VarExpr, M:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location}) 
+        | trace(GlobalM1,empty)  --- <--- remove local links
+        | ruleStore( ARS:AtlRuleSet )
+        | procEnv(EP:EnvP)
+        | resolveTempClasses(QCS:QualifiedCidSet)
+      )
+      | env(E:Env new(NEW:Map{QualifiedCid,Oid}) loc(LOC:Map{Oid,Location})) 
+      | model(M:IObjectSet) 
+      | stmt(TREE:Stmt))
+    => 
+    fmaK(
+      AK1:K
+      | env(E2:Env new(NEW2:Map{QualifiedCid,Oid}) loc(LOC2:Map{Oid,Location})) 
+      | model(M2:IObjectSet) 
+      | extAtlK(
+        AK2:K
+        | trace(GlobalM2, LocalM2)  --- <--- trace domain may be updated if there are calls to lazy rules
+      )
+      | stmt(())) 
+  /\
+    --- TRACE
+    traceK(
+      env(E2:Env) --- <--- update fresh identifiers, start with no locations
+      | resolveTempClasses(QCS:QualifiedCidSet)
+      | trace( empty, empty )  --- <--- we don't need to whole trace model in the context, we are only adding links 
+      | stmt(TRACE:TraceStmt)) 
+    => 
+    traceK(
+      AK3:K
+      | trace(GlobalM3,LocalM3) 
+      | stmt( tUnit )
+    ) 
+  .
+
+
+
+  --- -------------------------------------------------------------------------
+  --- -------------------------------------------------------------------------
+  --- LAZY RULES
+  --- -------------------------------------------------------------------------
+  --- -------------------------------------------------------------------------
+
+  --- difference with E-AtlRuleSideEffects: matches a lazy rule
+  crl [E-AtlLazyRuleSideEffects] :
+    atlK( 
+      K:K 
+      | procEnv(EP:EnvP) 
+      | queryDomain(MODEL:VarExpr, M:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location})  
+      | ruleStore(  
+        atlLazyRule(
+            RN:ProcName, 
+            C:QualifiedCid, 
+            V:VarExpr,
+            MODEL2:VarExpr, --- deprecated as we use queryDomain: was used to select domain
+            (DSL#Bool) OCLE:OclExp, 
+          DSS:DomainStmtSet
+        )  
+        ARS:AtlRuleSet    
+      )
+      | match( match(RN:ProcName, SUBS:Map{VarExpr,ValueExpr}) )
+    ) 
+  =>
+    atlK(
+      K':K 
+      | procEnv(EP:EnvP) 
+      | match( noMatch )
+    )   
+  if 
+    atlDomainK(
+      K:K 
+      | procEnv(EP:EnvP) 
+      | queryDomain(MODEL:VarExpr, M:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location})
+      | ruleStore(  
+        atlLazyRule(
+            RN:ProcName, 
+            C:QualifiedCid, 
+            V:VarExpr,
+            MODEL2:VarExpr, 
+            (DSL#Bool) OCLE:OclExp, 
+          DSS:DomainStmtSet
+        )  
+        ARS:AtlRuleSet    
+      )
+      | env(var(SUBS:Map{VarExpr,ValueExpr})) 
+      | actions(DSS:DomainStmtSet)
+    ) 
+  => 
+    atlDomainK(
+      K':K 
+      | procEnv(EP:EnvP) 
+      | env(E:Env) 
+      | actions( noDomainStmt )
+    ) .
+
+
+  --- the lazy rule must not modify the object under focus or any of its containments
+  crl [E-SetCmtUniLazyRuleInv] :
+    fmaActK(
+      K:K 
+      | env(
+        var( VM1:Map{VarExpr,ValueExpr} ) 
+        loc(SLOC:Map{Oid,Location}) 
+        new(SNEW:Map{QualifiedCid,Oid})
+      ) 
+      | model(iOS1:IObjectSet)
+      | focus(L:Location)
+      | ps(P:PropName = val(OS1:IObjectSet), PS:PropSet)
+      | pendingActions( SAIS:IActionSet ) 
+      | extExprK(
+        EK:K
+        | exprTrace(ETOS:Map{LinkSource,LinkTarget})
+      )       
+      | extAtlK(
+        AK:K 
+        | ruleStore(ARS:AtlRuleSet (
+          atlLazyRule(
+            RN:ProcName, 
+            C:QualifiedCid, 
+            SVAR:VarExpr, --- parameter
+            MN:VarExpr, --- input domain name
+            ME:Expr, 
+            DSS:DomainStmtSet
+          )
+        ))
+        | domain(MN2:VarExpr, CxOS1:IObjectSet, NEW1:Map{QualifiedCid,Oid}, LOC1:Map{Oid,Location})  
+        | trace(GlobalM1,LocalM1) 
+      ) 
+      | stmt2(setCmtLazyRule(P:PropName, RN:ProcName, val(O:Oid)))
+    )
+  => 
+    fmaActK(
+      K:K 
+      | env(
+        var( VM1:Map{VarExpr,ValueExpr} ) 
+        loc( 
+          (                           --- <--- insert new locations at the right depth
+            prependPathPrefix(
+              L:Location,
+              P:PropName,
+              diff(LOC:Map{Oid,Location},SLOC:Map{Oid,Location}) --- get the new locations     
+            ), 
+            SLOC:Map{Oid,Location}      
+          ) 
+        )                                        
+        new( NEW:Map{QualifiedCid,Oid} )   --- <--- new fresh identiers
+      )   
+      | model(iOS1:IObjectSet)             --- <--- changes to external context is forbidden
+      | focus(L:Location)
+      | ps(P:PropName = val(concat(OS1:IObjectSet, OS2:IObjectSet)), PS:PropSet)     --- <--- add new objects                      
+      | pendingActions( SAIS:IActionSet ) 
+      | extExprK(
+        EK:K
+        | exprTrace(GlobalM2) --- <-- update trace
+      ) 
+      | extAtlK(      --- <--- keep: the external configuration updated: all changes must be duplicated here --- is this actually needed here? can we defer creating it?
+        AK':K                                
+        | domain(
+          MN2:VarExpr, 
+          CxOS1:IObjectSet,           --- <--- changes to external context is forbidden
+          NEW:Map{QualifiedCid,Oid},  --- <--- update new identifiers
+          (                           --- <--- insert new locations at the right depth
+            prependPathPrefix(
+              L:Location,
+              P:PropName,
+              diff(LOC:Map{Oid,Location},SLOC:Map{Oid,Location}) --- get the new locations     
+            ), 
+            SLOC:Map{Oid,Location}      
+          )       
+        ) 
+        | trace(GlobalM2,LocalM2)  --- <--- update trace
+      ) 
+      | stmt2( * )
+    ) 
+  if 
+    oid(MTN:ModelTypeName ! SC:Cid, OID:Nat) := deepestOid(L:Location)
+  /\ 
+    hasOppositeRef(oe(MTN:ModelTypeName),biCmtEnd(MTN:ModelTypeName ! SC:Cid,P),sr(MTN:ModelTypeName)) == false 
+  /\  
+    --- E-AtlRuleSideEffects
+    atlK(
+      AK:K 
+      | extExprK(
+        EK:K
+        | exprTrace(GlobalM1) 
+      )  
+      | ruleStore(ARS:AtlRuleSet (
+          atlLazyRule(
+            RN:ProcName, 
+            C:QualifiedCid, 
+            SVAR:VarExpr, 
+            MN:VarExpr, 
+            ME:Expr, 
+            DSS:DomainStmtSet
+          )
+        ))
+      | domain(
+          MN2:VarExpr, 
+          (
+            (1 |-> sentinel)         --- <-- called rule can only access the context of the invoking object through resolveTemp
+          ),
+          SNEW:Map{QualifiedCid,Oid}, 
+          SLOC:Map{Oid,Location} --- we need the whole location store to be able to define references to object outside the aggregate
+
+      )   
+      | trace(GlobalM1,LocalM1)    
+      | match( match( RN:ProcName, SVAR:VarExpr |-> val(O:Oid) ) )
+    ) 
+    => 
+    atlK(
+      AK':K --- includes ruleStore
+      | extExprK(
+        EK:K
+        | exprTrace(ETOS:Map{LinkSource,LinkTarget}) --- to discard
+      )  
+      | domain(
+          MN2:VarExpr, 
+          OS2:IObjectSet,             --- <--- new objects 
+          NEW:Map{QualifiedCid,Oid},  --- <--- new fresh ids
+          LOC:Map{Oid,Location}       --- <--- locations of new objects
+        ) 
+      | trace(GlobalM2,LocalM2) 
+      | match( noMatch )
+    ) .
+
+
+  crl [E-SetCmtBiLazyRuleInv] :
+    fmaActK(
+      K:K 
+      | env(
+        var( VM1:Map{VarExpr,ValueExpr} ) 
+        loc(SLOC:Map{Oid,Location}) 
+        new(SNEW:Map{QualifiedCid,Oid})
+      ) 
+      | model(iOS1:IObjectSet)
+      | focus(L:Location)
+      | ps(P:PropName = val(OS1:IObjectSet), PS:PropSet)
+      | pendingActions( SAIS:IActionSet ) 
+      | extExprK(
+        EK:K
+        | exprTrace(ETOS:Map{LinkSource,LinkTarget})
+      )       
+      | extAtlK(
+        AK:K 
+        | ruleStore(ARS:AtlRuleSet (
+          atlLazyRule(
+            RN:ProcName, 
+            C:QualifiedCid, 
+            SVAR:VarExpr, --- parameter
+            MN:VarExpr, --- input domain name
+            ME:Expr, 
+            DSS:DomainStmtSet
+          )
+        ))
+        | domain(MN2:VarExpr, CxOS1:IObjectSet, NEW1:Map{QualifiedCid,Oid}, LOC1:Map{Oid,Location})  
+        | trace(GlobalM1,LocalM1) 
+      ) 
+      | stmt2(setCmtLazyRule(P:PropName, RN:ProcName, val(O:Oid)))
+    )
+  => 
+    fmaActK(
+      K:K 
+      | env(
+        var( VM1:Map{VarExpr,ValueExpr} ) 
+        loc( 
+          (                           --- <--- insert new locations at the right depth
+            prependPathPrefix(
+              L:Location,
+              P:PropName,
+              diff(LOC:Map{Oid,Location},SLOC:Map{Oid,Location}) --- get the new locations     
+            ), 
+            SLOC:Map{Oid,Location}      
+          ) 
+        )                                        
+        new( NEW:Map{QualifiedCid,Oid} )   --- <--- new fresh identiers
+      )   
+      | model(iOS1:IObjectSet)             --- <--- changes to external context is forbidden
+      | focus(L:Location)
+      | ps(P:PropName = val(concat(OS1:IObjectSet, OS2:IObjectSet)), PS:PropSet)     --- <--- add new objects                      
+      | pendingActions( createPendingActions(OS2:IObjectSet, P2:PropName, oid(MTN:ModelTypeName ! SC:Cid, OID:Nat), SAIS:IActionSet) )
+      | extExprK(
+        EK:K
+        | exprTrace(GlobalM2) --- <-- update trace
+      ) 
+      | extAtlK(      --- <--- keep: the external configuration updated: all changes must be duplicated here --- is this actually needed here? can we defer creating it?
+        AK':K                                
+        | domain(
+          MN2:VarExpr, 
+          CxOS1:IObjectSet,           --- <--- changes to external context is forbidden
+          NEW:Map{QualifiedCid,Oid},  --- <--- update new identifiers
+          (                           --- <--- insert new locations at the right depth
+            prependPathPrefix(
+              L:Location,
+              P:PropName,
+              diff(LOC:Map{Oid,Location},SLOC:Map{Oid,Location}) --- get the new locations     
+            ), 
+            SLOC:Map{Oid,Location}      
+          )       
+        ) 
+        | trace(GlobalM2,LocalM2)  --- <--- update trace
+      ) 
+      | stmt2( * )
+    ) 
+  if 
+    oid(MTN:ModelTypeName ! SC:Cid, OID:Nat) := deepestOid(L:Location)
+  /\ 
+    biRefEnd(C2:QualifiedCid,P2:PropName) := getOppositeRef(oe(MTN:ModelTypeName),biCmtEnd(MTN:ModelTypeName ! SC:Cid,P),sr(MTN:ModelTypeName))
+
+  /\  
+    --- E-AtlRuleSideEffects
+    atlK(
+      AK:K 
+      | extExprK(
+        EK:K
+        | exprTrace(GlobalM1) 
+      )  
+      | ruleStore(ARS:AtlRuleSet (
+          atlLazyRule(
+            RN:ProcName, 
+            C:QualifiedCid, 
+            SVAR:VarExpr, 
+            MN:VarExpr, 
+            ME:Expr, 
+            DSS:DomainStmtSet
+          )
+        ))
+      --- | domain(MN2:VarExpr, iOS1:IObjectSet, SNEW:Map{QualifiedCid,Oid}, SLOC:Map{Oid,Location} )  --- <-- update the model in the domain with the latest changes performed by FMA statements
+      | domain(
+          MN2:VarExpr, 
+          (
+            (1 |-> sentinel)         --- <-- called rule can only access the context of the invoking object through resolveTemp
+          ),
+          SNEW:Map{QualifiedCid,Oid}, 
+          SLOC:Map{Oid,Location} --- we need the whole location store to be able to define references to object outside the aggregate
+
+      )   
+      | trace(GlobalM1,LocalM1)    
+      | match( match( RN:ProcName, SVAR:VarExpr |-> val(O:Oid) ) )
+    ) 
+    => 
+    atlK(
+      AK':K --- includes ruleStore
+      | extExprK(
+        EK:K
+        | exprTrace(ETOS:Map{LinkSource,LinkTarget}) 
+      )  
+      | domain(
+          MN2:VarExpr, 
+          OS2:IObjectSet,             --- <--- new objects 
+          NEW:Map{QualifiedCid,Oid},  --- <--- new fresh ids
+          LOC:Map{Oid,Location}       --- <--- locations of new objects
+        ) 
+      | trace(GlobalM2,LocalM2)
+      | match( noMatch )
+    ) .
+
+
+
+
+  --- 1. IObjectSet: set of target objects to receive action
+  --- 2. Propname: prop to be updated
+  --- 3. Oid: source va
+  --- 4. set of actions to be updated
+  op createPendingActions : IObjectSet PropName Oid IActionSet -> IActionSet .
+  --- base case
+  eq createPendingActions( empty, P:PropName, SO:Oid, SAIS:IActionSet ) = SAIS:IActionSet .
+  eq createPendingActions( I:Int |-> sentinel, P:PropName, SO:Oid, SAIS:IActionSet ) = SAIS:IActionSet .
+  --- objects
+  eq createPendingActions( (I1:Int |-> { prop("_id") = val(TO:Oid), PS:PropSet }) iOS:IObjectSet, P:PropName, SO:Oid,(SAIS:IActionSet, I:Int |-> sentinel) ) =
+    createPendingActions( iOS:IObjectSet, P:PropName, SO:Oid,
+      ((I:Int |-> set(TO:Oid,P:PropName,SO:Oid)), ((I:Int +N 1) |-> sentinel), SAIS:IActionSet)
+    ) .
+
+
+
+  rl [E-SetCmtLazyRuleInv-Ref-Empty] : 
+    fmaActK( 
+      K1:K
+      | stmt2(setCmtLazyRule(P:PropName, RN:ProcName, ref( (I:Int |-> sentinel)) ) )
+    )
+  =>
+    fmaActK( 
+      K1:K
+      | stmt2(*)
+    ) .
+
+
+  crl [E-SetCmtLazyRuleInv-Ref] : 
+    fmaActK( 
+      K1:K
+      | stmt2(setCmtLazyRule(P:PropName, RN:ProcName, ref( ((I:Int |-> oid(C:QualifiedCid,OID:Int)) IS:IOidSet)) ) )
+    )
+  =>
+    fmaActK( 
+      K3:K
+      | stmt2(*)
+    )
+  if 
+    fmaActK( 
+      K1:K
+      | stmt2(setCmtLazyRule(P:PropName, RN:ProcName, val( oid(C:QualifiedCid,OID:Int) ) ) )
+    )
+  =>
+    fmaActK( 
+      K2:K
+      | stmt2(*)
+    ) 
+  /\
+    fmaActK( 
+      K2:K
+      | stmt2(setCmtLazyRule(P:PropName, RN:ProcName, ref( IS:IOidSet ) ) )
+    )
+  =>
+    fmaActK( 
+      K3:K
+      | stmt2(*)
+    ) .
+
+
+  crl [E-SetCmtLazyRuleInv-Expr] : 
+    fmaActK( 
+      K1:K
+      | extExprK(EK:K)
+      | env( E:Env )
+      | stmt2( setCmtLazyRule( P:PropName, RN:ProcName, EXPR:Expr ) )
+    )
+  =>
+    fmaActK( 
+      K2:K
+      | stmt2(*)
+    )
+  if
+    notValueExpr?(EXPR:Expr) 
+  /\
+    exprK(EK:K | exprEnv(E:Env) | expr(EXPR:Expr)) 
+    => 
+    exprK(output(VAL:ValueExpr))
+  /\
+    fmaActK( 
+      K1:K
+      | extExprK(EK:K)
+      | env( E:Env )
+      | stmt2(setCmtLazyRule(P:PropName, RN:ProcName, VAL:ValueExpr ) )
+    )
+  =>
+    fmaActK( 
+      K2:K
+      | stmt2(*)
+    ) .
+  
+
+
+  --- TRANSITION SYSTEM TO EXECUTE model actions in different domains
+  op actions : DomainStmtSet -> K [ctor] .
+  
+  
+  
+
+  --- -------------------------------------------------------------------------
+  --- MATCHING PHASE
+  ---   to pre-compute matches
+  --- -------------------------------------------------------------------------
+  sort Match .
+  subsort Match < MatchPool .
+  --- Rule name
+  --- Variable used in LHS of rule
+  --- sOid of object
+  op match : ProcName Map{VarExpr,ValueExpr} -> Match [ctor] .
+
+  sort MatchPool .
+  op __ : MatchPool MatchPool -> MatchPool [ctor assoc comm id: noMatch] .
+  op noMatch : -> MatchPool [ctor] .
+  
+  --- match to be used: to decide the scheduler to use E-AtlRuleSchedule/E-AtlLazyRuleSchedule
+  op match : MatchPool -> K .
+  --- pool of pre-computed matches
+  op matchPool : MatchPool -> K .
+
+  sort SchedulingPolicy .
+  op _;_ : SchedulingPolicy SchedulingPolicy -> SchedulingPolicy [ctor assoc id: noPolicy] .
+  op noPolicy : -> SchedulingPolicy [ctor] .
+  subsort ProcName < SchedulingPolicy .
+
+  op schedulingPolicy : SchedulingPolicy -> K [ctor] .
+
+  --- GIVEN
+  ---   AtlRuleSet: rule set
+  ---   IObjectSet: model
+  ---   Env for executing OCL expression
+  --- THEN
+  ---   return the set of Matches with the given set of rules
+  op findMatches : AtlRuleSet IObjectSet Env -> MatchPool .
+  eq findMatches( ARS:AtlRuleSet, M:IObjectSet, E:Env ) =
+    findMatches( ARS:AtlRuleSet, M:IObjectSet, E:Env, noMatch ) .
+
+  op findMatches : AtlRuleSet IObjectSet Env MatchPool -> MatchPool .
+  eq [findMatches-rules] : 
+    findMatches( 
+      atlRule(
+        RN:ProcName, 
+        C:QualifiedCid, 
+        V:VarExpr, 
+        MN:VarExpr, 
+        (DSL#Bool) FC:OclExp, 
+        DDS:DomainStmtSet
+      ) ARS:AtlRuleSet,
+      M:IObjectSet, 
+      E:Env,
+      MP:MatchPool 
+    ) 
+  =
+    findMatches( 
+      ARS:AtlRuleSet, 
+      M:IObjectSet, 
+      E:Env, 
+      MP:MatchPool findMatchesPerRule( RN:ProcName, C:QualifiedCid, V:VarExpr, FC:OclExp, M:IObjectSet, E:Env ) 
+    ) 
+  .
+  eq [findMatches-noRule] : findMatches( ARS:AtlRuleSet, M:IObjectSet, E:Env, MP:MatchPool ) = MP:MatchPool [owise] .
+
+  op disableMatch : MatchPool Oid -> MatchPool .
+  eq disableMatch( match(RN:ProcName, (V:VarExpr |-> val(O:Oid), SUBS:Map{VarExpr,ValueExpr})) MP:MatchPool, O:Oid ) = 
+    disableMatch( MP:MatchPool, O:Oid ) .
+  eq disableMatch( M:MatchPool, O:Oid ) = M:MatchPool [owise] .
+
+  --- GIVEN
+  ---   ProcName: rule name (identifier) 
+  ---   QualifiedCid: name of Matching class
+  ---   VarExpr: LHS variable to be used in the Match
+  ---   OclExp: filter condition (application condition)
+  ---   IObjectSet: model
+  ---   Env for executing OCL expression
+  --- THEN
+  ---   return the set of Matches with the given rule
+  op findMatchesPerRule : ProcName QualifiedCid VarExpr OclExp IObjectSet Env -> MatchPool .
+  eq findMatchesPerRule( RN:ProcName, C:QualifiedCid, V:VarExpr, true, M:IObjectSet, E:Env ) = noMatch
+    enumerateMatches(RN:ProcName, V:VarExpr, 
+      oclValToFmaVal(
+        eval(
+            C:QualifiedCid . allInstances() -> asSequence() , 
+            getModclConfiguration(M:IObjectSet, E:Env)
+        )
+      ),
+      noMatch
+    )
+  .
+  eq findMatchesPerRule( RN:ProcName, C:QualifiedCid, V:VarExpr, FC:OclExp, M:IObjectSet, E:Env ) =
+    enumerateMatches(RN:ProcName, V:VarExpr,
+      oclValToFmaVal(
+        eval(
+            C:QualifiedCid . allInstances() -> select( fmaVarToOclVar(V:VarExpr) | FC:OclExp ) -> asSequence() , 
+            getModclConfiguration(M:IObjectSet, E:Env)
+        )
+      ),
+      noMatch
+    )
+  [owise] .
+
+  --- ASSUMPTION: a match contains ONLY ONE LHS VBLE
+  op enumerateMatches : ProcName VarExpr ValueExpr MatchPool -> MatchPool .
+  eq enumerateMatches( RN:ProcName, V:VarExpr, ref( I:Nat |-> sentinel ), MP:MatchPool ) = MP:MatchPool .
+  eq enumerateMatches( RN:ProcName, V:VarExpr, ref((I:Nat |-> O:Oid) (I2:Nat |-> sentinel) IS:IOidSet), MP:MatchPool ) =
+    enumerateMatches( 
+      RN:ProcName, 
+      V:VarExpr, 
+      ref((I2:Nat |-> sentinel) IS:IOidSet), 
+      match(RN:ProcName, V:VarExpr |-> val(O:Oid)) MP:MatchPool 
+    )
+  .
+
+  op existsMatch : ProcName MatchPool -> Bool .
+  eq existsMatch(RN:ProcName,  match(RN:ProcName,SUBS:Map{VarExpr,ValueExpr}) MP:MatchPool) = true .
+  eq existsMatch(RN:ProcName, MP:MatchPool) = false [owise] .
+
+  
+  
+  --- --------------------------------------------------------------------------	
+  --- --------------------------------------------------------------------------	
+  --- PROCEDURE INVOCATIONS: AtlHelper, AtlAttibute  	
+  --- --------------------------------------------------------------------------	
+  --- --------------------------------------------------------------------------
+  crl [E-HelperInv1] :
+	exprK(
+	  EK:K
+	  | procEnv( (helper context CT:QualifiedCid def : PN:ProcName ( PL:ParamList ) : RT:Scalar = OCLE:Expr ;) EP:EnvP)
+	  | exprEnv(E:Env)
+	  | expr(V1:ValueExpr . PN:ProcName ( AL:ArgList ))
+	) 
+  => 
+    exprK(output(V2:ValueExpr)) 
+  if 
+  	allValueExpr?(AL:ArgList) 
+  /\ 
+  	exprK(
+  	  EK:K
+  	  | procEnv((helper context CT:QualifiedCid def : PN:ProcName ( PL:ParamList ) : RT:Scalar = OCLE:Expr ;) EP:EnvP)
+  	  | exprEnv( insertArgs(PL:ParamList, AL:ArgList, insert(var("self"), V1:ValueExpr, E:Env)) )
+  	  | expr(OCLE:Expr)
+  	) 
+  	=>
+  	exprK(output(V2:ValueExpr)) .
+  	 
+   
+  crl [E-HelperInv2] :
+  	exprK(
+  	  EK:K
+  	  | expr(EX:Expr . PN:ProcName ( AL:ArgList ))
+  	)
+  => 
+	  exprK(output(V2:ValueExpr))
+  if 
+  	notValueExpr?(EX:Expr)
+  /\
+  	exprK(
+  	  EK:K
+  	  | expr(EX:Expr)
+  	)
+  	=> 
+  	exprK(output(V1:ValueExpr)) 
+  /\
+    exprK(
+      EK:K
+      | expr(V1:ValueExpr . PN:ProcName ( AL:ArgList ))
+    )
+    => 
+    exprK(output(V2:ValueExpr)) .
+
+
+
+  crl [E-HelperInv3] :
+  	exprK(
+  	  EK:K
+  	  | expr(V:ValueExpr . PN:ProcName ( (AL1:ArgList, EXPR:Expr, AL2:ArgList)  ))
+  	)
+  => 
+    exprK(output(V2:ValueExpr))
+  if 
+  	allValueExpr?(AL1:ArgList) 
+  /\ 
+  	notValueExpr?(EXPR:Expr) 
+  /\ 
+  	exprK(
+  	  EK:K
+  	  | expr(EXPR:Expr)
+  	)
+  	=> 
+  	exprK(output(V1:ValueExpr)) 
+  /\
+    exprK(
+      EK:K
+      | expr(V:ValueExpr . PN:ProcName ( (AL1:ArgList, V1:ValueExpr, AL2:ArgList) ))
+    )
+    => 
+    exprK(output(V2:ValueExpr)) .   
+  
+  rl [E-HelperAttributeInv] :
+    exprK(
+      EK:K
+      | procEnv( atlAttribute(PN:ProcName,VAL:ValueExpr) EP:EnvP)
+      | expr(thisModule . PN:ProcName )
+    ) 
+  => 
+    exprK(output(VAL:ValueExpr)) 
+ .
+  
+ 
+  crl [E-AtlResolveTempExpr] :
+    exprK(EK:K | exprTrace(TM:Map{LinkSource,LinkTarget}) | expr( resolveTemp(EXPR:Expr, V:ValueExpr) ))
+  => 
+    exprK(output(resolveTemp(VAL:ValueExpr, V:ValueExpr, TM:Map{LinkSource,LinkTarget})))
+  if
+  	exprK(EK:K | exprTrace(TM:Map{LinkSource,LinkTarget}) | expr(EXPR:Expr))
+  	=>
+  	exprK(output(VAL:ValueExpr)) .
+  
+ 
+ 
+  --- given
+  ---	1. an identifier 
+  ---	2. trace model
+  ---	3. a target variable name (value)
+  --- then
+  ---	return THE target reference
+  --- not defined
+  ---	when a reference is not mapped via the trace model
+  op resolveTemp : ValueExpr ValueExpr Map{LinkSource,LinkTarget}  ~> ValueExpr .
+  
+  ceq [resolveTemp-value] : resolveTemp( val(SO:Oid), VAL:ValueExpr, TM:Map{LinkSource,LinkTarget}) = 
+  	val(TO:Oid)
+  if linkTarget(RN:ValueExpr,TO:Oid) := TM:Map{LinkSource,LinkTarget} [ linkSource(SO:Oid,VAL:ValueExpr) ] .
+
+  eq [resolveTemp-refs] : resolveTemp( ref(IS:IOidSet), VAL:ValueExpr, TM:Map{LinkSource,LinkTarget} ) =
+  	ref(image( ref(IS:IOidSet), VAL:ValueExpr, TM:Map{LinkSource,LinkTarget}, 0 |-> sentinel )) .
+
+  --- one identifier
+  op image : ValueExpr ValueExpr Map{LinkSource,LinkTarget} IOidSet ~> IOidSet .
+  --- not defined for values
+  eq [image-ref-empty] : image( ref(empty), VAL:ValueExpr, TM:Map{LinkSource,LinkTarget}, IS:IOidSet ) = IS:IOidSet  . --- empty
+  eq [image-ref-sentinel] : image( ref( (I:Nat |-> sentinel ) ), VAL:ValueExpr, TM:Map{LinkSource,LinkTarget}, IS:IOidSet ) = IS:IOidSet . --- empty
+  ceq [image-ref-collection] : 
+    image( 
+        ref((I:Nat |-> SO:Oid) (I2:Nat |-> sentinel) IS1:IOidSet), 
+        VAL:ValueExpr, 
+        TM:Map{LinkSource,LinkTarget}, 
+        (I3:Nat |-> sentinel) IS2:IOidSet
+    ) 
+  =
+  	image( 
+      ref((I2:Nat |-> sentinel) IS1:IOidSet), 
+      VAL:ValueExpr, 
+      TM:Map{LinkSource,LinkTarget},
+      (I3:Nat |-> TO:Oid) (I3:Nat +N 1 |-> sentinel) IS2:IOidSet
+    )
+  if linkTarget(RN:ValueExpr,TO:Oid) := TM:Map{LinkSource,LinkTarget} [ linkSource(SO:Oid,VAL:ValueExpr) ] . 
+
+
+  op extAtlK : K -> K .
+
+
+
+
+  vars K K' EK : K .
+  var E : Env .
+  var P : PropName .
+  var PATTERN : ValueExpr .
+  var V : ValueExpr .
+  var PS : PropSet .
+
+
+  --- resolve temp
+  crl [E-CmtArgument-ResolveTemp] :
+    fmaActK(K | extExprK(EK) | env(E) | stmt2(setCmt(P, resolveTemp(VAR:VarExpr,PATTERN) )))
+  =>   
+    fmaActK(K' | stmt2(*))
+  if
+    exprK(EK | exprEnv(E) | expr( resolveTemp(VAR:VarExpr,PATTERN) )) 
+    => 
+    exprK(output(V:ValueExpr))
+  /\
+    fmaActK(K | extExprK(EK) | env(E) | stmt2(setCmt(P, V:ValueExpr)))
+    => 
+    fmaActK(K' | stmt2(*)) .
+
+
+
+  --- resolveTemp in set statements
+  --- attributes: not defined 
+
+  --- ref 
+  crl [E-RefSet-OclExp] :
+    fmaActK(K | extExprK(EK) | env(E) | ps(P = ref(IS:IOidSet), PS) | stmt2( setCmt(P, resolveTemp(EXPR:Expr, PATTERN) )))
+  =>   
+    fmaActK(K' | stmt2(*))
+  if
+    exprK(EK | exprEnv(E) | expr( resolveTemp(EXPR:Expr, PATTERN) )) 
+    => 
+    exprK(output(V))
+  /\
+    fmaActK(K | extExprK(EK) | env(E) | ps(P = ref(IS:IOidSet), PS) | stmt2(setCmt(P, V)))
+    => 
+    fmaActK(K' | stmt2(*)) .
+
+  --- cmt
+  crl [E-CmtSet-OclExp] :
+    fmaActK(K | extExprK(EK) | env(E) | ps(P = val(OS:IObjectSet), PS) | stmt2(setCmt(P, resolveTemp(EXPR:Expr, PATTERN) )))
+  =>   
+    fmaActK(K' | stmt2(*))
+  if
+    exprK(EK | exprEnv(E) | expr( resolveTemp(EXPR:Expr, PATTERN) )) 
+    => 
+    exprK(output(V))
+  /\
+    fmaActK(K | extExprK(EK) | env(E) | ps(P = val(OS:IObjectSet), PS) | stmt2(setCmt(P, V)))
+    => 
+    fmaActK(K' | stmt2(*)) .
+
+
+
+endm
+

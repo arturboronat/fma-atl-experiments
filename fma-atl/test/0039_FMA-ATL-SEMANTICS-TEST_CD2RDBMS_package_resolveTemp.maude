@@ -1,0 +1,356 @@
+mod TEST-DSL-SEMANTICS is
+  inc  FMA-ATL-SEMANTICS . 
+
+  --- traceability model
+  eq cl(metamodel("AtlTrace") ! cid("TLink")) = 
+  	(prop("rule") :t DSL#String) 
+  	(prop("source") :t ref(AnyCid)) 
+  	(prop("target") :t ref(AnyCid)) 
+  	(prop("targetVar") :t DSL#String) .
+  eq default(metamodel("AtlTrace") ! cid("TLink")) = 
+  	(prop("rule") = val("")), 
+  	(prop("source") = ref(0 |-> sentinel)), 
+  	(prop("target") = ref(0 |-> sentinel)),
+  	(prop("targetVar") = val("")) .
+  eq r(metamodel("AtlTrace")) = metamodel("AtlTrace") ! cid("TLink") .
+  eq oe(metamodel("AtlTrace")) = empty .
+  eq sr(metamodel("AtlTrace")) = empty .
+
+  --- --------------------------------------------------------------------------
+  --- metamodel CD
+  --- --------------------------------------------------------------------------
+  eq cl(metamodel("CD") ! cid("NamedElt")) = (prop("name") :t DSL#String) .
+  eq cl(metamodel("CD") ! cid("Classifier")) = (prop("name") :t DSL#String) .
+  eq cl(metamodel("CD") ! cid("Package")) = (prop("name") :t DSL#String)  (prop("classifiers") :t (metamodel("CD") ! cid("Classifier"))) .
+  eq cl(metamodel("CD") ! cid("DataType")) = (prop("name") :t DSL#String) .
+  eq cl(metamodel("CD") ! cid("Class")) = (prop("name") :t DSL#String) (prop("isAbstract") :t DSL#Bool) (prop("super") :t ref(metamodel("CD") ! cid("Class"))) (prop("attr") :t (metamodel("CD") ! cid("Attribute"))) .
+  eq cl(metamodel("CD") ! cid("Attribute")) = (prop("name") :t DSL#String) (prop("multivalued") :t DSL#Bool) (prop("owner") :t ref(metamodel("CD") ! cid("Class"))) (prop("type") :t ref(metamodel("CD") ! cid("Classifier"))) .
+
+  --- abstract: eq default(metamodel("CD") ! cid("NamedElt")) = (prop("name") = val("")) .
+  --- abstract: eq default(metamodel("CD") ! cid("Classifier")) = (prop("name") = val("")) .
+  eq default(metamodel("CD") ! cid("Package")) = (prop("name") = val("")), (prop("classifiers") = val( 0 |-> sentinel )) .
+  eq default(metamodel("CD") ! cid("DataType")) = (prop("name") = val("")) .
+  eq default(metamodel("CD") ! cid("Class")) = (prop("name") = val("")), (prop("isAbstract") = val(false)), (prop("super") = ref(0 |-> sentinel)), (prop("attr") = val(0 |-> sentinel)) .
+  eq default(metamodel("CD") ! cid("Attribute")) = (prop("name") = val("")), (prop("multivalued") = val(false)), (prop("owner") = ref(0 |-> sentinel)), (prop("type") = ref(0 |-> sentinel)) .
+
+  eq r(metamodel("CD")) = metamodel("CD") ! cid("NamedElt") .
+  
+  eq oe(metamodel("CD")) = 
+  	(biCmtEnd(metamodel("CD") ! cid("Class"),prop("attr")) |-> biRefEnd(metamodel("CD") ! cid("Attribute"),prop("owner"))), 
+  	(biRefEnd(metamodel("CD") ! cid("Attribute"),prop("owner")) |-> biCmtEnd(metamodel("CD") ! cid("Class"),prop("attr")))
+  . 
+
+  eq sr(metamodel("CD")) =
+  	subtype(metamodel("CD") ! cid("Classifier"), metamodel("CD") ! cid("NamedElt"))
+  	subtype(metamodel("CD") ! cid("DataType"), metamodel("CD") ! cid("Classifier"))
+  	subtype(metamodel("CD") ! cid("DataType"), metamodel("CD") ! cid("NamedElt"))
+  	subtype(metamodel("CD") ! cid("Class"), metamodel("CD") ! cid("Classifier"))
+  	subtype(metamodel("CD") ! cid("Class"), metamodel("CD") ! cid("NamedElt"))
+  	subtype(metamodel("CD") ! cid("Package"), metamodel("CD") ! cid("Classifier"))
+  	subtype(metamodel("CD") ! cid("Package"), metamodel("CD") ! cid("NamedElt"))
+  	subtype(metamodel("CD") ! cid("Attribute"), metamodel("CD") ! cid("NamedElt")) 
+  .
+
+
+
+  --- --------------------------------------------------------------------------
+  --- metamodel RDBMS
+  --- --------------------------------------------------------------------------
+  eq cl(metamodel("RDBMS") ! cid("Named")) = (prop("name") :t DSL#String) .
+  eq cl(metamodel("RDBMS") ! cid("Database")) = (prop("name") :t DSL#String) (prop("tables") :t metamodel("RDBMS") ! cid("Table")) .
+  eq cl(metamodel("RDBMS") ! cid("Table")) = (prop("name") :t DSL#String) (prop("col") :t metamodel("RDBMS") ! cid("Column"))  (prop("key") :t ref(metamodel("RDBMS") ! cid("Column"))) .
+  eq cl(metamodel("RDBMS") ! cid("Column")) = (prop("name") :t DSL#String) (prop("owner") :t ref(metamodel("RDBMS") ! cid("Table")))  (prop("keyOf") :t ref(metamodel("RDBMS") ! cid("Table"))) (prop("type") :t ref(metamodel("RDBMS") ! cid("Type"))) .
+  eq cl(metamodel("RDBMS") ! cid("Type")) = (prop("name") :t DSL#String) .
+
+  --- abstract: eq default(metamodel("RDBMS") ! cid("Named")) = (prop("name") = val("")) .
+  eq default(metamodel("RDBMS") ! cid("Database")) = (prop("name") = val("")), (prop("tables") = val( 0 |-> sentinel )) .
+  eq default(metamodel("RDBMS") ! cid("Table")) = (prop("name") = val("")), (prop("col") = val(0 |-> sentinel)), (prop("key") = ref(0 |-> sentinel)) .
+  eq default(metamodel("RDBMS") ! cid("Column")) = (prop("name") = val("")), (prop("owner") = ref(0 |-> sentinel)), (prop("keyOf") = ref(0 |-> sentinel)), (prop("type") = ref(0 |-> sentinel)) .
+  eq default(metamodel("RDBMS") ! cid("Type")) = (prop("name") = val(""))  .
+
+  eq r(metamodel("RDBMS")) = metamodel("RDBMS") ! cid("Named") .
+  
+  eq oe(metamodel("RDBMS")) = 
+  	(biCmtEnd(metamodel("RDBMS") ! cid("Table"),prop("col")) |-> biRefEnd(metamodel("RDBMS") ! cid("Column"),prop("owner"))), 
+  	(biRefEnd(metamodel("RDBMS") ! cid("Column"),prop("owner")) |-> biCmtEnd(metamodel("RDBMS") ! cid("Table"),prop("col"))),
+  	(biRefEnd(metamodel("RDBMS") ! cid("Table"),prop("key")) |-> biRefEnd(metamodel("RDBMS") ! cid("Column"),prop("keyOf"))), 
+  	(biRefEnd(metamodel("RDBMS") ! cid("Column"),prop("keyOf")) |-> biRefEnd(metamodel("RDBMS") ! cid("Table"),prop("key")))
+  . 
+
+  eq sr(metamodel("RDBMS")) =
+  	subtype(metamodel("RDBMS") ! cid("Database"), metamodel("RDBMS") ! cid("Named"))
+  	subtype(metamodel("RDBMS") ! cid("Table"), metamodel("RDBMS") ! cid("Named"))
+  	subtype(metamodel("RDBMS") ! cid("Column"), metamodel("RDBMS") ! cid("Named"))
+  	subtype(metamodel("RDBMS") ! cid("Type"), metamodel("RDBMS") ! cid("Named"))
+  .
+
+
+  --- --------------------------------------------------------------------------
+  --- TRACE MODEL
+  --- --------------------------------------------------------------------------
+
+  op newT : -> Map{QualifiedCid,Oid} .
+  eq newT =	(metamodel("AtlTrace") ! cid("TLink") |-> oid(metamodel("AtlTrace") ! cid("TLink"),0)) .
+
+
+  --- --------------------------------------------------------------------------
+  --- OUTPUT MODEL
+  --- --------------------------------------------------------------------------
+  op locOut : -> Map{Oid,Location} .
+  eq locOut = empty .
+  
+  op newOut : -> Map{QualifiedCid,Oid} .
+  eq newOut = 
+  		(
+  			(metamodel("RDBMS") ! cid("Database") |-> oid(metamodel("RDBMS") ! cid("Database"),0)),
+  			(metamodel("RDBMS") ! cid("Table") |-> oid(metamodel("RDBMS") ! cid("Table"),0)),
+  			(metamodel("RDBMS") ! cid("Column") |-> oid(metamodel("RDBMS") ! cid("Column"),0)),
+  			(metamodel("RDBMS") ! cid("Type") |-> oid(metamodel("RDBMS") ! cid("Type"),0))
+  		) .
+
+
+
+  --- --------------------------------------------------------------------------
+  --- TRAFO
+  --- --------------------------------------------------------------------------
+  op helpers : -> AtlProcDecl .
+  eq helpers = (
+  	helper def : op("objectIdType") : metamodel("CD") ! cid("DataType") =
+		(
+			(metamodel("RDBMS") ! cid("Type")) 
+				(metamodel("CD") ! cid("DataType")) . allInstances()  
+				-> select( oclVar("e") | oclVar("e") . prop("name") = "Integer") 
+				-> asSequence() -> first()
+		) 
+  	;
+  ) .
+  
+
+  op rules : -> RuleDeclListAtlStmt .
+  eq rules =
+    rule op("DataType2Type") {
+	  from
+		var("DT") : metamodel("CD") ! cid("DataType") in var("IN")
+	  to
+		var("T") : metamodel("RDBMS") ! cid("Type") in var("OUT") (
+			prop("name") <- (DSL#String) oclVar("DT") . prop("name")
+		)
+	} 
+
+    
+    rule op("SingleValuedDataTypeAttribute2Column") {
+      from
+        var("AT") : (metamodel("CD") ! cid("Attribute")) in var("IN") (
+            (DSL#Bool) (
+                not (oclVar("AT") . prop("multivalued")) and (oclVar("AT") . prop("type") -> first() . oclIsKindOf(metamodel("CD") ! cid("DataType")))
+            )
+        )
+      to
+        var("CO") : metamodel("RDBMS") ! cid("Column") in var("OUT") (
+            (
+                (prop("name") <- ((DSL#String) (oclVar("AT") . prop("name"))))
+                , 
+                (prop("type") <- 
+                    resolveTemp(
+                        ((metamodel("CD") ! cid("Classifier")) (oclVar("AT") . prop("type") -> first())),
+                        val("T")
+                    )
+                )
+            )   
+        )
+    }  
+
+    rule op("MultipleValuedDataTypeAttribute2Column") {
+	  from
+		var("AT") : (metamodel("CD") ! cid("Attribute")) in var("IN") (
+			(DSL#Bool) (
+				oclVar("AT") . prop("multivalued") and oclVar("AT") . prop("type") -> first() . oclIsKindOf(metamodel("CD") ! cid("DataType"))
+			)
+		)
+	  to
+		(
+			(var("TB") : metamodel("RDBMS") ! cid("Table") in var("OUT") (
+				(
+					(prop("name") <- ((DSL#String) (
+						oclVar("AT") . prop("owner") ->  first() . prop("name")
+						+ "_" +
+						oclVar("AT") . prop("name")
+					)))
+					, (prop("col") <- (metamodel("RDBMS") ! cid("Column")) Sequence{ oclVar("CO"), oclVar("COO") } )
+				)  	
+			))
+			,
+			(var("CO") : metamodel("RDBMS") ! cid("Column") in var("OUT") (
+				(
+					(prop("name") <- ((DSL#String) (
+						oclVar("AT") . prop("owner") ->  first() . prop("name")
+						+ "Id" 
+					))), 
+					(prop("type") <- 
+						let var("TYPE") = thisModule . op("objectIdType")
+						in (resolveTemp(var("TYPE"),val("T")))					
+					)
+				)  	
+			)),
+			(var("COO") : metamodel("RDBMS") ! cid("Column") in var("OUT") (
+				(
+					(prop("name") <- ((DSL#String) (
+						oclVar("AT") . prop("name") 
+					))), 
+					(prop("type") <- 
+						let var("TYPE") = thisModule . op("objectIdType")
+						in (resolveTemp(var("TYPE"),val("T")))					
+					)
+				)  	
+			))
+		)		
+	}  
+
+
+    rule op("SingleValuedClassAttribute2Column") {
+	  from
+		var("AT") : (metamodel("CD") ! cid("Attribute")) in var("IN") (
+			(DSL#Bool) (
+				not (oclVar("AT") . prop("multivalued")) and (oclVar("AT") . prop("type") -> first() . oclIsKindOf(metamodel("CD") ! cid("Class")))
+			)
+		)
+	  to
+		var("CO") : metamodel("RDBMS") ! cid("Column") in var("OUT") (
+			(
+				(prop("name") <- ((DSL#String) (oclVar("AT") . prop("name")) + "Id")), 
+				(prop("type") <- 
+					let var("TYPE") = thisModule . op("objectIdType")
+					in (resolveTemp(var("TYPE"),val("T")))					
+				)
+			)  	
+		)
+	}  
+
+
+    rule op("MultipleValuedClassttribute2Column") {
+	  from
+		var("AT") : (metamodel("CD") ! cid("Attribute")) in var("IN") (
+			(DSL#Bool) (
+				oclVar("AT") . prop("multivalued") and oclVar("AT") . prop("type") -> first() . oclIsKindOf(metamodel("CD") ! cid("Class"))
+			)
+		)
+	  to
+		(
+			(var("TB") : metamodel("RDBMS") ! cid("Table") in var("OUT") (
+				(
+					(prop("name") <- ((DSL#String) (
+						oclVar("AT") . prop("owner") ->  first() . prop("name")
+						+ "_" +
+						oclVar("AT") . prop("name")
+					)))
+					, (prop("col") <- (metamodel("RDBMS") ! cid("Column")) Sequence{ oclVar("ID"), oclVar("K") } )
+				)  	
+			)),
+			(var("ID") : metamodel("RDBMS") ! cid("Column") in var("OUT") (
+				(
+					(prop("name") <- ((DSL#String) (
+						oclVar("AT") . prop("owner") ->  first() . prop("name") + "Id" --- missing firstToLower()
+					))), 
+					(prop("type") <- 
+						let var("TYPE") = thisModule . op("objectIdType")
+						in (resolveTemp(var("TYPE"),val("T")))					
+					)
+				)  	
+			)),
+			(var("K") : metamodel("RDBMS") ! cid("Column") in var("OUT") (
+				(
+					(prop("name") <- ((DSL#String) (
+						oclVar("AT") . prop("name") + "Id" 
+					))), 
+					(prop("type") <- 
+						let var("TYPE") = thisModule . op("objectIdType")
+						in (resolveTemp(var("TYPE"),val("T")))					
+					)
+				)  	
+			))
+		)
+	}  
+
+	rule op("zClass2Table") {
+	  from
+		var("C") : (metamodel("CD") ! cid("Class")) in var("IN") 
+	  to
+		(
+			(var("TB") : metamodel("RDBMS") ! cid("Table") in var("OUT") (
+				(
+					(prop("name") <- ((DSL#String) (oclVar("C") . prop("name")))),
+					(prop("col") <- 
+						let var("ATTS") = (((metamodel("CD") ! cid("Attribute")) (
+							oclVar("C") . prop("attr") 
+							-> select( oclVar("A") | not (oclVar("A") . prop("multivalued")) )
+						))) in 
+						let var("COLS") = resolveTemp(var("ATTS"), val("CO")) in
+						((metamodel("RDBMS") ! cid("Column")) Sequence{ oclVar("K") } -> union( oclVar("COLS")))
+					),
+					(prop("key") <- var("K"))
+				)  	
+			)),
+			(var("K") : metamodel("RDBMS") ! cid("Column") in var("OUT") (
+				(
+					(prop("name") <- val("objectId")), 
+					(prop("type") <- 
+						let var("TYPE") = thisModule . op("objectIdType")
+						in (resolveTemp(var("TYPE"),val("T")))					
+					)
+				)  	
+			))
+		)
+	}
+	rule op("zPackage2Database") {
+	  from
+		var("P") : (metamodel("CD") ! cid("Package")) in var("IN") 
+	  to
+		(
+			(var("D") : metamodel("RDBMS") ! cid("Database") in var("OUT") (
+
+				(
+
+					(prop("name") <- ((DSL#String) (oclVar("P") . prop("name"))))
+					,
+					(prop("tables") <- 
+						let var("CLASSES") = (((metamodel("CD") ! cid("Class")) (
+							oclVar("P") . prop("classifiers") 
+							-> select( oclVar("iter") | oclVar("iter") . oclIsTypeOf( metamodel("CD") ! cid("Class") ) )
+						))) in 
+						let var("TABLES") = resolveTemp(var("CLASSES"), val("TB")) in 
+						let var("ATTS") = (((metamodel("CD") ! cid("Attribute")) (
+							oclVar("CLASSES") . prop("attr") -> asSequence()
+						))) in 
+						let var("ATT_TABLES") = resolveTemp(var("ATTS"), val("TB")) in 						
+						((metamodel("RDBMS") ! cid("Table")) Sequence{  } -> union( oclVar("TABLES")) -> union( oclVar("ATT_TABLES") ))
+					)
+				)  	
+
+			))
+		)
+	} 
+  .
+
+
+
+
+
+
+
+
+
+
+
+  op trafo : -> AtlTrafoStmt .
+  eq trafo = (
+  	module "CD2RDBMS" ;
+  	create var("OUT") : metamodel("RDBMS") from  (var("IN") : metamodel("CD"))
+  	rules
+  	helpers
+  ) .
+
+
+
+
+
+endm

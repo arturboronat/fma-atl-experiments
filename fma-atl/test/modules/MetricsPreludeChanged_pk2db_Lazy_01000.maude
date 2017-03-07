@@ -1,0 +1,273 @@
+
+		load ../../000_prelude .
+		
+set print conceal on .
+print conceal atlInit atlMatchingK model procEnv exprEnv env ps extExprK extAtlK exprModel exprTrace domain queryDomain trace ruleStore .
+
+set trace off .
+set trace eq off .
+set trace mb off .
+set trace rl on .
+set trace builtin off .
+--- set trace select on .
+--- trace select E-OclExpInv .
+--- trace select E-AtlRuleSchedule E-AtlRuleSideEffects E-AtlRuleDomainStmtInv .
+--- trace select E-HelperInv1 E-HelperInv2  .
+--- trace select _<:_ subtypeOf getOppositeRef hasOppositeRef . 
+--- trace select E-AtlRuleInv  E-AtlRuleDomainStmtInv .
+--- trace select E-AttSet E-ActLet E-OclExpInv .
+--- trace select AtlRuleInv  AtlRuleDomainStmtInv E-LetCreate .
+--- trace select E-AtlRuleSchedule E-AtlRuleSideEffects E-AtlLazyRuleSideEffects E-AtlRuleDomainStmtInv E-AtlLazyRuleSchedule .
+--- trace select E-Snapshot E-AtlLazyRuleSchedule . 
+set trace whole off .
+set trace rewrite off . --- application: --->
+set trace substitution on .
+set trace condition on .
+set trace body off . 
+
+load ../../001_OCL_preamble .
+load ../../002_PRE-MODEL-OCL .
+load ../../003_modcl .
+load ../../004_MODEL-OCL .
+load ../../010_FMA-SYNTAX .
+load ../../011_FMA-TYPE-INFERENCE .
+load ../../012_FMA-SEMANTICS .
+load ../../013_FMA-OCL-EXTENSION .
+load ../../014_FMA-ATL-SYNTAX .
+load ../../015_FMA-ATL-GRAPH .
+
+load ../../016_FMA-ATL-SEMANTICS-LAZY .
+
+load ../../test/0039_FMA-ATL-SEMANTICS-TEST_CD2RDBMS_package_lazy .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-0 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-1 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-2 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-3 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-4 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-5 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-6 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-7 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-8 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-9 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-10 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-11 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-12 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-13 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-14 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-15 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-16 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-17 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-18 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-19 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-20 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-21 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-22 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-23 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-24 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-25 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-26 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-27 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-28 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-29 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-30 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-31 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-32 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-33 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-34 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-35 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-36 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-37 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-38 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-39 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-40 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-41 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-42 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-43 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-44 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-45 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-46 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-47 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-48 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-49 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-50 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-51 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-52 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-53 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-54 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-55 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-56 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-57 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-58 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-59 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-60 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-61 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-62 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-63 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-64 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-65 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-66 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-67 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-68 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-69 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-70 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-71 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-72 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-73 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-74 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-75 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-76 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-77 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-78 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-79 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-80 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-81 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-82 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-83 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-84 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-85 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-86 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-87 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-88 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-89 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-90 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-91 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-92 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-93 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-94 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-95 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-96 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-97 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-98 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-99 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-100 .
+
+load ./01000/TEST-DSL-SEMANTICS-MODEL-101 .
+
+	
+	***(
+		--- compilation of rules: 434 rewrites
+		rew atlInit(
+		  K1:K
+		  | ruleStore( noAtlRule )
+		  | atlStmt( rules )
+		) .
+		
+		--- computing matches
+		red findMatches(
+			fmaAtlRules,
+			inModel,
+			var(empty) loc(inLoc) new(inNew)
+		) .
+	)
+
+rew 
+atlInit(
+	ruleStore(noAtlRule) 
+	| procEnv( empty ) 
+	| trace(empty,empty)
+	| resolveTempClasses( metamodel("CD") ! cid("DataType") )
+	| atlStmt(trafo) 
+	| queryDomain(var("IN"), inModel, inNew, inLoc) 
+	| domain(var("OUT"), 0 |-> sentinel, newOut, locOut)
+) .

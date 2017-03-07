@@ -1,0 +1,89 @@
+
+		load ../../000_prelude .
+		
+set print conceal on .
+print conceal atlInit atlMatchingK model procEnv exprEnv env ps extExprK extAtlK exprModel exprTrace domain queryDomain trace ruleStore .
+
+set trace off .
+set trace eq off .
+set trace mb off .
+set trace rl on .
+set trace builtin off .
+--- set trace select on .
+--- trace select E-OclExpInv .
+--- trace select E-AtlRuleSchedule E-AtlRuleSideEffects E-AtlRuleDomainStmtInv .
+--- trace select E-HelperInv1 E-HelperInv2  .
+--- trace select _<:_ subtypeOf getOppositeRef hasOppositeRef . 
+--- trace select E-AtlRuleInv  E-AtlRuleDomainStmtInv .
+--- trace select E-AttSet E-ActLet E-OclExpInv .
+--- trace select AtlRuleInv  AtlRuleDomainStmtInv E-LetCreate .
+--- trace select E-AtlRuleSchedule E-AtlRuleSideEffects E-AtlLazyRuleSideEffects E-AtlRuleDomainStmtInv E-AtlLazyRuleSchedule .
+--- trace select E-Snapshot E-AtlLazyRuleSchedule . 
+set trace whole off .
+set trace rewrite off . --- application: --->
+set trace substitution on .
+set trace condition on .
+set trace body off . 
+
+load ../../001_OCL_preamble .
+load ../../002_PRE-MODEL-OCL .
+load ../../003_modcl .
+load ../../004_MODEL-OCL .
+load ../../010_FMA-SYNTAX .
+load ../../011_FMA-TYPE-INFERENCE .
+load ../../012_FMA-SEMANTICS .
+load ../../013_FMA-OCL-EXTENSION .
+load ../../014_FMA-ATL-SYNTAX .
+load ../../015_FMA-ATL-GRAPH .
+
+load ../../016_FMA-ATL-SEMANTICS .
+
+load ../../test/0039_FMA-ATL-SEMANTICS-TEST_CD2RDBMS_package_resolveTemp .
+
+load ./00075/TEST-DSL-SEMANTICS-MODEL-0 .
+
+load ./00075/TEST-DSL-SEMANTICS-MODEL-1 .
+
+load ./00075/TEST-DSL-SEMANTICS-MODEL-2 .
+
+load ./00075/TEST-DSL-SEMANTICS-MODEL-3 .
+
+load ./00075/TEST-DSL-SEMANTICS-MODEL-4 .
+
+load ./00075/TEST-DSL-SEMANTICS-MODEL-5 .
+
+load ./00075/TEST-DSL-SEMANTICS-MODEL-6 .
+
+load ./00075/TEST-DSL-SEMANTICS-MODEL-7 .
+
+load ./00075/TEST-DSL-SEMANTICS-MODEL-8 .
+
+load ./00075/TEST-DSL-SEMANTICS-MODEL-9 .
+
+	
+	***(
+		--- compilation of rules: 434 rewrites
+		rew atlInit(
+		  K1:K
+		  | ruleStore( noAtlRule )
+		  | atlStmt( rules )
+		) .
+		
+		--- computing matches
+		red findMatches(
+			fmaAtlRules,
+			inModel,
+			var(empty) loc(inLoc) new(inNew)
+		) .
+	)
+
+rew
+atlInit(
+	ruleStore(noAtlRule)
+	| procEnv( empty )
+	| trace(empty,empty)
+	| resolveTempClasses( (metamodel("CD") ! cid("DataType")) c (metamodel("CD") ! cid("Attribute")) c (metamodel("CD") ! cid("Class")) )
+	| atlStmt(trafo)
+	| queryDomain(var("IN"), inModel, inNew, inLoc)
+	| domain(var("OUT"), 0 |-> sentinel, newOut, locOut)
+) .

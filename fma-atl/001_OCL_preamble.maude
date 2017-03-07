@@ -1,0 +1,308 @@
+--- %I --------------------------------------------------------------------------------- 
+--- Avoiding preregularity warnings
+--- Because of the subsort hierarchy used, predefined Maude sorts are subsort of 
+--- BasicType.
+---	   subsort Int Float String Bool < BasicType .
+--- This produces preregularity warnings.
+
+--- Solution: We rename predefined operators when necessary.
+---   We define new modules OCL-FLOAT, OCL-INT, etc. to hide such operator renaming.
+---   When mOdCL is imported, the mOdCL version for such predefined module must be used.
+---   For example, for using the sort Float the module OCL-FLOAT must be imported. 
+---   Except for this, the Float sort can be used as it was imported from FLOAT
+--- %F ---------------------------------------------------------------------------------
+
+
+--- ------------------------------------------------------------------------------------ 
+fmod OCL-NAT is
+   pr NAT * (op _xor_ : Nat Nat -> Nat  to _nxor_,
+             op _|_   : Nat Nat -> Nat  to _|N_,     
+             op _<_   : Nat Nat -> Bool to _<N_,    
+             op _<=_  : Nat Nat -> Bool to _<=N_,   
+             op _>_   : Nat Nat -> Bool to _>N_,    
+             op _>=_  : Nat Nat -> Bool to _>=N_,   
+             op _-_   : Nat Nat -> Nat  to _-N_,    
+             op _*_   : Nat Nat -> Nat  to _*N_,    
+             op _+_   : Nat Nat -> Nat  to _+N_) .
+endfm
+ 
+--- ------------------------------------------------------------------------------------ 
+--- STRING imports NAT. Therefore, we must maintain renamings in NAT, and
+---        futhermore we must rename some operators in String
+--- ------------------------------------------------------------------------------------ 
+fmod OCL-STRING is
+   pr STRING * (op _|_   : Nat Nat -> Nat  to _|N_,    
+                op _xor_ : Nat Nat -> Nat to _nxor_,   
+                op _<_   : Nat Nat -> Bool to _<N_,    
+                op _<=_  : Nat Nat -> Bool to _<=N_,   
+                op _>_   : Nat Nat -> Bool to _>N_,    
+                op _>=_  : Nat Nat -> Bool to _>=N_,   
+                op _*_   : Nat Nat -> Nat to _*N_,     
+                op _+_   : Nat Nat -> Nat to _+N_,
+ 
+                op _<_  : String String -> Bool to _lt_,   
+                op _<=_ : String String -> Bool to _leq_,   
+                op _>_  : String String -> Bool to _gt_,   
+                op _>=_ : String String -> Bool to _geq_,  
+                op _+_  : String String -> String to _++_) .   
+endfm
+
+--- ------------------------------------------------------------------------------------ 
+--- FLOAT
+---   As the operators in STRING and the others Maude modules have been renamed, we 
+---   don't need to rename the operators on FLOAT. However, we do it to avoid clashes 
+---   with the OCL operators. Thus, from now "+" is not an operator on Float but an 
+---   operator on the OCL primitive types
+--- ------------------------------------------------------------------------------------ 
+fmod OCL-FLOAT is
+   pr FLOAT * (op abs   : Float -> Float to absF,
+               op -_    : Float -> Float  to -F_,
+               op _+_   : Float Float -> Float to _+F_,
+               op _-_   : Float Float -> Float to _-F_,
+               op _/_   : Float Float -> Float to _/F_,
+               op _*_   : Float Float -> Float to _*F_,
+               op min   : Float Float -> Float to minF,
+               op max   : Float Float -> Float to maxF,
+               op _rem_ : Float Float -> Float to _remF_,
+               op _^_   : Float Float -> Float to _^F_,
+               op _<_   : Float Float -> Bool  to _<F_,
+               op _<=_  : Float Float -> Bool  to _<=F_,
+               op _>_   : Float Float -> Bool  to _>F_,
+               op _>=_  : Float Float -> Bool  to _>=F_, 
+
+               op floor : Float -> Float to floorF,
+               op ceiling : Float -> Float to ceilingF) .
+endfm
+
+--- ------------------------------------------------------------------------------------ 
+fmod OCL-RAT is
+   pr RAT * (op _xor_ : Nat Nat -> Nat  to _nxor_,
+             op _|_   : Nat Nat -> Nat  to _|N_,     
+             op _<_   : Nat Nat -> Bool to _<N_,    
+             op _<=_  : Nat Nat -> Bool to _<=N_,   
+             op _>_   : Nat Nat -> Bool to _>N_,    
+             op _>=_  : Nat Nat -> Bool to _>=N_,   
+             op _-_   : Nat Nat -> Nat  to _-N_,    
+             op _*_   : Nat Nat -> Nat  to _*N_,    
+             op _+_   : Nat Nat -> Nat  to _+N_,
+             op -_ : Int -> Int to -I_,
+             
+             --- Maudeling uses Rat. However the / operator is reserved for Int 
+             --- and Float, so that we rename / to  //
+             op _/_   : Rat Rat -> Rat  to _//_,         
+             op floor : PosRat -> Nat to floorR,
+             op ceiling : PosRat -> Nat to ceilingR) .
+endfm
+
+--- ------------------------------------------------------------------------------------ 
+--- OCL-CONFIGURATION 
+--- We don't change anything here. Only the module's name is changed as it has been 
+--- requested by the Maudeling team 
+--- ------------------------------------------------------------------------------------ (
+mod OCL-CONFIGURATION is
+  pr CONFIGURATION .
+endm
+
+--- ------------------------------------------------------------------------------------ 
+fmod OCL-CONVERSION is
+   pr CONVERSION
+            * (--- Renamings in FLOAT
+               op abs   : Float -> Float to absF,
+               op -_    : Float -> Float  to -F_,
+               op _+_   : Float Float -> Float to _+F_,
+               op _-_   : Float Float -> Float to _-F_,
+               op _/_   : Float Float -> Float to _/F_,
+               op _*_   : Float Float -> Float to _*F_,
+
+               op min   : Float Float -> Float to minF,
+               op max   : Float Float -> Float to maxF,
+               op _rem_ : Float Float -> Float to _remF_,
+               op _^_   : Float Float -> Float to _^F_,
+               op _<_   : Float Float -> Bool  to _<F_,
+               op _<=_  : Float Float -> Bool  to _<=F_,
+               op _>_   : Float Float -> Bool  to _>F_,
+               op _>=_  : Float Float -> Bool  to _>=F_,
+               op floor : Float -> Float to floorF,
+               op ceiling : Float -> Float to ceilingF,
+
+               --- Renamings in RAT
+               op _xor_ : Nat Nat -> Nat  to _nxor_,
+               op _|_   : Nat Nat -> Nat  to _|N_,
+               op _<_   : Nat Nat -> Bool to _<N_,
+               op _<=_  : Nat Nat -> Bool to _<=N_,
+               op _>_   : Nat Nat -> Bool to _>N_,
+               op _>=_  : Nat Nat -> Bool to _>=N_,
+               op _-_   : Nat Nat -> Nat  to _-N_,
+               op _*_   : Nat Nat -> Nat  to _*N_,
+               op _+_   : Nat Nat -> Nat  to _+N_,
+               op -_ : Int -> Int to -I_,
+               op _/_   : Rat Rat -> Rat  to _//_,
+               op floor : PosRat -> Nat to floorR,
+               op ceiling : PosRat -> Nat to ceilingR,
+               
+               --- Renamings in STRING
+               op _<_  : String String -> Bool to _lt_,
+               op _<=_ : String String -> Bool to _leq_,
+               op _>_  : String String -> Bool to _gt_,
+               op _>=_ : String String -> Bool to _geq_,
+               op _+_  : String String -> String to _++_,  
+               op float : Rat -> Float to rat2float,
+               op float : String ~> Float to string2float,
+               op rat : String NzNat ~> Rat to string2rat ) .
+endfm
+
+--- ------------------------------------------------------------------------------------ 
+fmod OCL-LIST-MRC{X :: TRIV} is
+   pr (LIST * (op _xor_ : Nat Nat -> Nat to _nxor_,
+              op _|_   : Nat Nat -> Nat  to _|N_,    
+              op _+_   : Nat Nat -> Nat to _+N_,
+              op _-_   : Nat Nat -> Nat to _-N_,
+              op _*_   : Nat Nat -> Nat to _*N_,
+              op _<_   : Nat Nat -> Bool to _<N_,
+              op _<=_  : Nat Nat -> Bool to _<=N_,
+              op _>=_  : Nat Nat -> Bool to _>=N_,
+              op _>_   : Nat Nat -> Bool to _>N_)) {X}  .
+endfm
+
+--- ------------------------------------------------------------------------------------ 
+fmod OCL-SET{X :: TRIV} is
+   pr (SET * (op _xor_ : Nat Nat -> Nat to _nxor_,
+              op _|_   : Nat Nat -> Nat  to _|N_,    
+              op _+_   : Nat Nat -> Nat to _+N_,
+              op _-_   : Nat Nat -> Nat to _-N_,
+              op _*_   : Nat Nat -> Nat to _*N_,
+              op _<_   : Nat Nat -> Bool to _<N_,
+              op _<=_  : Nat Nat -> Bool to _<=N_,
+              op _>=_  : Nat Nat -> Bool to _>=N_,
+              op _>_   : Nat Nat -> Bool to _>N_)) {X}  .
+endfm
+
+
+
+
+--- ------------------------------------------------------------------------------------ 
+--- OCL-TYPE. OCL Type hierarchy 
+---   BasycType: Primitive OCL types
+---   Enum: To define enumerations. 
+---         Any enumeration in the model must be subsort of Enum 
+---   Oid: Objects (Object identifiers)
+---        To allow the definition of user defined operation on primitive OCL types, Oid
+---        is set as supersort of any primitive OCL sort. Thus, for example, as integers
+---	   are Oid, it is possible to perform 3.power(2)
+---   OclAny: BasicType, Enumerations and Objects
+---   	      From OCL v2.3.1 OclAny conforms with any type
+---   OclType: All the OCL types, including OCL collections
+---   OclVoid: Is subsort of any primitive sort. It only contains the null value
+---            As OclVoid is subsort of any other predefined sort, we get some 
+---	       preregularity warnings. For example, if we define + between Float as
+---	       	    op _.+._ : Float Float -> Float .	   
+---	       We solve this issue by declaring some operator on OclVoid  
+---                 op _.+._ : OclVoid OclVoid -> OclVoid . 
+mod OCL-TYPE is
+   pr CONFIGURATION .
+---   pr OCL-CONFIGURATION .
+   pr OCL-RAT .  --- We use RAT instead of INT to allow Maudeling to use the sort Rat 
+   pr OCL-STRING .
+   pr OCL-FLOAT .
+   pr OCL-CONVERSION .
+
+   sorts Enum BasicType OclVoid OclInvalid OclAny OclType . 
+   sorts Set Bag OrderedSet Sequence Collection . 
+
+   --- Use of Rat instead of Int to allow Maudeling to use Rat
+   subsort OclVoid < Rat Float String Bool < BasicType . 
+   subsort OclVoid < BasicType Oid Enum Collection < OclAny .
+   subsort OclVoid < Set Bag OrderedSet Sequence  < Collection . 
+   subsort OclAny < OclType < OclInvalid . 
+
+   --- This subsort relation avoids some preregularity warnings. For example, if
+   --- the user wants Nat as Oid. As Nat is not subsort of OclVoid (In fact, only
+   --- Rat is defined as OclVoid < Rat < Oid) we need to put OclVoid as subsort of
+   --- Nat. This relation puts the least sort in the kind. This way we cover all
+   --- the possibilities 
+   subsort OclVoid < NzNat .
+
+   --- The "invalid" constant conforms with all the OCL types
+   op invalid : -> OclInvalid [ctor] .
+
+   --- The "null" constant is the only OclVoid value
+   op null : -> OclVoid [ctor] .
+
+   --- To provide Integers and Floats compatibility
+   --- This is not a characteristic of OCL but an extension of mOdCL
+   eq O1:Rat .+. O2:Float  = rat2float(O1:Rat) +F O2:Float .
+   eq O1:Float .+. O2:Rat  = O1:Float +F rat2float(O2:Rat) .
+   eq O1:Rat .-. O2:Float  = rat2float(O1:Rat) -F O2:Float .
+   eq O1:Float .-. O2:Rat  = O1:Float -F rat2float(O2:Rat) .
+   eq O1:Rat .*. O2:Float  = rat2float(O1:Rat) *F O2:Float .
+   eq O1:Float .*. O2:Rat  = O1:Float *F rat2float(O2:Rat) .
+   eq O1:Rat ./. O2:Float  = rat2float(O1:Rat) /F O2:Float .
+   eq O1:Float ./. O2:Rat  = O1:Float /F rat2float(O2:Rat) .
+   eq O1:Rat .>. O2:Float  = rat2float(O1:Rat) >F O2:Float .
+   eq O1:Float .>. O2:Rat  = O1:Float >F rat2float(O2:Rat) .
+   eq O1:Rat .>=. O2:Float  = rat2float(O1:Rat) >=F O2:Float .
+   eq O1:Float .>=. O2:Rat  = O1:Float >=F rat2float(O2:Rat) .
+   eq O1:Rat .<. O2:Float  = rat2float(O1:Rat) <F O2:Float .
+   eq O1:Float .<. O2:Rat  = O1:Float <F rat2float(O2:Rat) .
+   eq O1:Rat .<=. O2:Float  = rat2float(O1:Rat) <=F O2:Float .
+   eq O1:Float .<=. O2:Rat  = O1:Float <=F rat2float(O2:Rat) .
+
+   --- We declare these operators in OclVoid to avoid preregularity warnings
+   --- Note that OclVoid is set as subsort of any predefined sort
+   op .-._ : OclVoid -> OclVoid .
+   op .abs._ : OclVoid -> OclVoid .
+   op .max. : OclVoid OclVoid -> OclVoid . 
+   op .min. : OclVoid OclVoid -> OclVoid . 
+   op _.+._ : OclVoid OclVoid -> OclVoid [prec 37] . 
+   op _.-._ : OclVoid OclVoid -> OclVoid .
+   op _.*._ : OclVoid OclVoid -> OclVoid .
+   op _./._ : OclVoid OclVoid -> OclVoid .
+   op _.<._ : OclVoid OclVoid -> Bool .
+   op _.>._ : OclVoid OclVoid -> Bool .
+   op _.<=._ : OclVoid OclVoid -> Bool .
+   op _.>=._ : OclVoid OclVoid -> Bool .
+
+   --- Int
+   --- Now we use Rat instead of Int (Maudeling)
+
+   --- Rat
+   --- 
+   eq .-. O1:Rat  = -I O1:Rat .
+   eq O1:Rat .+. O2:Rat  = O1:Rat +N O2:Rat .
+   eq O1:Rat .-. O2:Rat  = O1:Rat -N O2:Rat .
+   eq O1:Rat .*. O2:Rat  = O1:Rat *N O2:Rat .
+   eq O1:Rat ./. O2:Rat  = O1:Rat // O2:Rat .
+
+   eq O1:Rat .<. O2:Rat  = O1:Rat <N O2:Rat .
+   eq O1:Rat .>. O2:Rat  = O1:Rat >N O2:Rat .
+   eq O1:Rat .<=. O2:Rat  = O1:Rat <=N O2:Rat .
+   eq O1:Rat .>=. O2:Rat  = O1:Rat >=N O2:Rat .
+   eq .abs.(O1:Rat) = abs(O1:Rat) .
+   eq .max.(O1:Rat, O2:Rat) = max(O1:Rat, O2:Rat) .
+   eq .min.(O1:Rat, O2:Rat) = min(O1:Rat, O2:Rat) .
+
+   --- Float
+   --- 
+   eq .abs. O1:Float =  absF(O1:Float) . 
+   eq .-. O1:Float   =  -F O1:Float . 
+   eq .max.(O1:Float,O2:Float) = maxF(O1:Float, O2:Float) .
+   eq .min.(O1:Float,O2:Float) = minF(O1:Float, O2:Float) .
+   eq O1:Float .+. O2:Float  = O1:Float +F O2:Float .
+   eq O1:Float .-. O2:Float  = O1:Float -F O2:Float . 
+   eq O1:Float .*. O2:Float  = O1:Float *F O2:Float .
+   eq O1:Float ./. O2:Float  = O1:Float /F O2:Float .
+   eq O1:Float .<. O2:Float  = O1:Float <F O2:Float .
+   eq O1:Float .>. O2:Float  = O1:Float >F O2:Float .
+   eq O1:Float .<=. O2:Float = O1:Float <=F O2:Float .
+   eq O1:Float .>=. O2:Float = O1:Float >=F O2:Float .
+
+   --- String
+   --- 
+   eq O1:String .+.  O2:String = O1:String ++  O2:String .
+   eq O1:String .<.  O2:String = O1:String lt  O2:String .
+   eq O1:String .>.  O2:String = O1:String gt  O2:String .
+   eq O1:String .<=. O2:String = O1:String leq O2:String .
+   eq O1:String .>=. O2:String = O1:String geq O2:String .
+endm
+
+

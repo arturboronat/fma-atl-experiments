@@ -1,0 +1,75 @@
+--- ----------------------------------------------------------------------------
+--- author: Artur Boronat
+--- date of creation: 07-06-2016
+---
+--- aim: type inference and type checking rules for Models and FMA
+--- ----------------------------------------------------------------------------
+mod FMA-TYPE-SYNTAX is
+  inc FMA-SYNTAX .
+
+  sorts FmaType StmtUnit ActUnit .
+  subsorts Record Scalar StmtUnit ActUnit < FmaType .
+    
+  --- variables can be typed with a model type
+  subsort ModelTypeName < Scalar .    
+    
+  --- SCALAR TYPE
+  subsort BaseType QualifiedCid < Scalar .
+  op ref : QualifiedCid -> Scalar [ctor] .
+  
+  --- RECORD: property set type
+  sort Field .
+  subsort Field < Record . 
+  op _:t_ : PropName Scalar -> Field [ctor] .
+  op __ : Record Record -> Record [ctor assoc comm id: noField] .
+  op noField : -> Record [ctor] .
+  --- represents any type (bottom)
+  op AnyRecord : -> Record [ctor] . 
+  op AnyCid : -> QualifiedCid . 
+  eq cl(AnyCid) = AnyRecord .
+  
+
+endm
+
+
+view Record from TRIV to FMA-TYPE-SYNTAX is
+  sort Elt to Record .
+endv
+
+view FmaType from TRIV to FMA-TYPE-SYNTAX is
+  sort Elt to FmaType .
+endv
+
+view VarExpr from TRIV to FMA-SYNTAX is
+  sort Elt to VarExpr .
+endv
+
+view QualifiedCid from TRIV to MODEL is
+  sort Elt to QualifiedCid .
+endv
+
+mod FMA-TYPE-INFERENCE-MODEL is
+  pr MAP{VarExpr,FmaType} * (op undefined to undefTEnv) .
+  
+  vars C C1 C2 : QualifiedCid .
+  
+  sorts Subtype SubtypeRelation .
+  subsort Subtype < SubtypeRelation .
+  op subtype : QualifiedCid QualifiedCid -> Subtype .
+  op __ : SubtypeRelation SubtypeRelation -> SubtypeRelation [comm assoc id: empty] .
+  op empty : -> SubtypeRelation .
+
+  op sr : ModelTypeName -> SubtypeRelation .  --- it has to be the transitive closure
+  
+  op isSubtypeOf : Cid Cid SubtypeRelation -> Bool .
+  eq isSubtypeOf(C1, C2, subtype(C1, C2) SR:SubtypeRelation) = true .
+  eq isSubtypeOf(C1, C2, SR:SubtypeRelation) = false [owise] .
+ 
+endm
+
+
+mod FMA-TYPE-CHECKER is
+  inc FMA-TYPE-INFERENCE-MODEL .
+    
+ 
+endm

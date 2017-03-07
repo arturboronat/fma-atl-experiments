@@ -1,0 +1,103 @@
+--- ----------------------------------------------------------------------------
+--- author: Artur Boronat
+--- date of creation: 08-02-2015
+---
+--- aim: syntax of statements of DSL of focussed model actions 
+--- ----------------------------------------------------------------------------
+mod FMA-SYNTAX is
+  --- inc FMA2JSON .
+  inc MODEL .
+  
+  --- expressions
+  sort BaseType Scalar .
+  ops DSL#Bool DSL#Int DSL#String : -> BaseType .
+  
+  sorts VarExpr Expr .
+  --- variables
+  op var : String -> VarExpr .
+  sort ExprError .
+  --- error type, description, expression with the error
+  op error : String String Expr -> ExprError .
+  subsorts ValueExpr VarExpr ProcCallExpr < Expr .
+  sort ValueExpr? .
+  subsorts ExprError ValueExpr < ValueExpr? .
+
+  sorts Argument ArgList .
+  op nil : -> ArgList .
+  op _,_ : ArgList ArgList -> ArgList [assoc id: nil] .
+  subsort Argument < ArgList .
+  subsort Expr < Argument .
+
+  sorts Parameter ParamList .
+  op nil : -> ParamList .
+  op _,_ : ParamList ParamList -> ParamList [ctor prec 50 assoc id: nil] .
+  subsort Parameter < ParamList .
+  op _:_ : VarExpr Scalar -> Parameter [ctor prec 49] .
+  
+  --- procedure calls
+  sorts ProcName ProcCallExpr .
+  op op : String -> ProcName .
+  op call_(_) : ProcName ArgList -> ProcCallExpr .
+  --- procedure declarations
+  sort ProcDecl ProcType .
+  op _`(_`)=_:_ : ProcName ParamList Expr ProcType -> ProcDecl .
+  
+  sorts BaseTypeList .
+  op nil : -> BaseTypeList .
+  subsort BaseType < BaseTypeList .
+  op _x_ : BaseType BaseTypeList -> BaseTypeList .
+
+  op _->_ : BaseTypeList BaseType -> ProcType .
+  
+  --- procedure environment 
+  sort EnvP .
+  op empty : -> EnvP .
+  op __ : EnvP EnvP -> EnvP [comm assoc id: empty] .
+  subsort ProcDecl < EnvP .
+  subsort ProcDecl < SingletonStmt .
+
+  op procEnv : -> EnvP . 
+
+  --- let expression: used to mix extensions 
+  sort LetExpr .
+  subsort LetExpr < Expr .
+  op let_=_in_ : VarExpr Expr Expr -> LetExpr .
+  
+  ------------------------------------------------------------------------------
+  --- STATEMENTS
+  --------------------------------------------------------------------------------
+  --- first-level statements
+  sorts SingletonStmt Stmt StmtValue StmtError .
+  subsorts StmtValue StmtError SingletonStmt < Stmt .   
+  
+  op snapshot_{_} : VarExpr ActStmt -> SingletonStmt . 
+  op let_=_in_ : VarExpr Stmt Stmt -> SingletonStmt . --- let create
+  op let_=_in_ : VarExpr Expr Stmt -> SingletonStmt .
+  op create : QualifiedCid -> SingletonStmt .
+  op delete : VarExpr -> SingletonStmt .
+  op _;_ : Stmt Stmt -> Stmt [prec 50 assoc] .
+  op () : -> StmtValue .
+  --- error type, description, statement with the error
+  op error : String String Stmt -> StmtError .
+  op error : String String ActStmt -> StmtError .
+
+  --- second-level statements  
+  sort SingletonActStmt ActStmt ActStmtValue ActStmtError .
+  subsort ActStmtValue ActStmtError SingletonActStmt < ActStmt  .
+
+  op snapshot2_{_} : VarExpr ActStmt -> SingletonActStmt . 
+  op let_=_in_ : VarExpr ActStmt ActStmt -> SingletonActStmt . --- let create, let lazy rule
+  --- we can only create objects in an expression
+  op let_=_in_ : VarExpr Expr ActStmt -> SingletonActStmt .  
+  op create : PropName QualifiedCid -> SingletonActStmt .
+  op set : PropName Expr -> SingletonActStmt  .
+  op setCmt : PropName Expr -> SingletonActStmt .  
+  op unset : PropName -> SingletonActStmt .
+  op unset : PropName VarExpr -> SingletonActStmt .   
+  op _;_ : ActStmt ActStmt -> ActStmt [prec 50 assoc].
+  op * : -> ActStmtValue .
+  --- error type, description, statement with the error
+  op error2 : String String ActStmt -> ActStmtError .
+
+endm
+

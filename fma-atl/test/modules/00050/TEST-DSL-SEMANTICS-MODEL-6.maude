@@ -1,0 +1,31 @@
+
+mod TEST-DSL-SEMANTICS-MODEL-6 is
+  inc  TEST-DSL-SEMANTICS-MODEL-5 . 
+
+  --- --------------------------------------------------------------------------
+  --- INPUT MODEL
+  --- --------------------------------------------------------------------------
+  op inModel : -> IObjectSet .
+  eq inModel = (
+	inModel-1 inModel-2 inModel-3 inModel-4 inModel-5  (52 |-> sentinel)
+  ) .
+
+  op inLoc : -> Map{Oid,Location} .
+  eq inLoc = 
+		(
+			inLoc-1 , inLoc-2 , inLoc-3 , inLoc-4 , inLoc-5 
+		) .
+		
+  op inNew : -> Map{QualifiedCid,Oid} .
+  eq inNew = 
+  		(
+  			(metamodel("CD") ! cid("DataType") |-> oid(metamodel("CD") ! cid("DataType"),2)),
+			(metamodel("CD") ! cid("Package") |-> oid(metamodel("CD") ! cid("Package"),50)),
+  			(metamodel("CD") ! cid("Class") |-> oid(metamodel("CD") ! cid("Class"),250)),
+  			(metamodel("CD") ! cid("Attribute") |-> oid(metamodel("CD") ! cid("Attribute"),1000))
+  		) .
+
+	
+  --- op fmaAtlRules : -> AtlRuleSet .
+  --- eq fmaAtlRules = 
+endm

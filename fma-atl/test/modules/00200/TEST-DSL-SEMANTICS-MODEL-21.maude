@@ -1,0 +1,31 @@
+
+mod TEST-DSL-SEMANTICS-MODEL-21 is
+  inc  TEST-DSL-SEMANTICS-MODEL-20 . 
+
+  --- --------------------------------------------------------------------------
+  --- INPUT MODEL
+  --- --------------------------------------------------------------------------
+  op inModel : -> IObjectSet .
+  eq inModel = (
+	inModel-1 inModel-2 inModel-3 inModel-4 inModel-5 inModel-6 inModel-7 inModel-8 inModel-9 inModel-10 inModel-11 inModel-12 inModel-13 inModel-14 inModel-15 inModel-16 inModel-17 inModel-18 inModel-19 inModel-20  (202 |-> sentinel)
+  ) .
+
+  op inLoc : -> Map{Oid,Location} .
+  eq inLoc = 
+		(
+			inLoc-1 , inLoc-2 , inLoc-3 , inLoc-4 , inLoc-5 , inLoc-6 , inLoc-7 , inLoc-8 , inLoc-9 , inLoc-10 , inLoc-11 , inLoc-12 , inLoc-13 , inLoc-14 , inLoc-15 , inLoc-16 , inLoc-17 , inLoc-18 , inLoc-19 , inLoc-20 
+		) .
+		
+  op inNew : -> Map{QualifiedCid,Oid} .
+  eq inNew = 
+  		(
+  			(metamodel("CD") ! cid("DataType") |-> oid(metamodel("CD") ! cid("DataType"),2)),
+			(metamodel("CD") ! cid("Package") |-> oid(metamodel("CD") ! cid("Package"),200)),
+  			(metamodel("CD") ! cid("Class") |-> oid(metamodel("CD") ! cid("Class"),1000)),
+  			(metamodel("CD") ! cid("Attribute") |-> oid(metamodel("CD") ! cid("Attribute"),4000))
+  		) .
+
+	
+  --- op fmaAtlRules : -> AtlRuleSet .
+  --- eq fmaAtlRules = 
+endm

@@ -1,0 +1,387 @@
+--- ----------------------------------------------------------------------------
+--- author: Artur Boronat
+--- date of creation: 08-02-2015
+---
+--- aim: syntax for structured models
+--- ----------------------------------------------------------------------------
+fmod FMA-MAP{X :: TRIV, Y :: TRIV} is
+  ex MAP{X,Y} .
+  
+  op _\_ : Map{X,Y} Map{X,Y} -> Map{X,Y} .
+  eq (E:Entry{X,Y}, M1:Map{X,Y}) \ (E:Entry{X,Y}, M2:Map{X,Y}) = M1:Map{X,Y} \ M2:Map{X,Y} . 
+  eq M1:Map{X,Y} \ M2:Map{X,Y} = M1:Map{X,Y} [owise] . 
+endfm
+
+view Rat from TRIV to OCL-RAT is
+	sort Elt to Rat .
+endv 
+
+fmod IMAP{X :: TRIV} is
+  pr FMA-MAP{Rat,X} .
+  
+  vars I I1 I2 I' : Int .
+  vars IS IS1 IS2 : Map{Rat,X} .
+  var Obj : X$Elt .
+  
+  op sentinel : -> X$Elt .
+
+  op hasElement : Map{Rat,X} X$Elt -> Bool .
+  eq hasElement(((I |-> Obj),IS),Obj) = true .
+  eq hasElement(IS,Obj)  = false [owise] .
+  
+  op getIndex : Entry{Rat,X} -> Rat .
+  eq getIndex( I |-> Obj ) = I . 
+  op getValue : Entry{Rat,X} -> X$Elt .
+  eq getValue( I |-> Obj ) = Obj . 
+  
+  op insert : Map{Rat,X} X$Elt -> Map{Rat,X} .
+  --- we avoid checking whether an element has that index
+  eq insert( ((I |-> sentinel), IS), Obj ) = 
+    ((I |-> Obj), ((I +N 1) |-> sentinel), IS) . 
+  
+  op concat : Map{Rat,X} Map{Rat,X} -> Map{Rat,X} .
+  eq concat( IS1, IS2 ) = concat(IS1, IS2, 0) .
+
+  op concat : Map{Rat,X} Map{Rat,X} Nat -> Map{Rat,X} .
+  eq concat( IS, empty, I ) = IS . 
+  eq concat( IS , (I2 |-> sentinel), I ) = IS . 
+  eq concat( 
+  	(IS, (I1 |-> sentinel)), 
+  	(IS2, (I |-> Obj)),
+    I
+  ) = 
+    concat(
+      (IS, (I1 |-> Obj), (I1 +N 1 |-> sentinel)),
+      IS2,
+      I +N 1
+    ) .
+  ceq concat( IS1, IS2, I ) =
+    concat( IS1, IS2, I +N 1 ) 
+  if IS2 [I] == undefined .
+  
+  op notEmpty : Map{Rat,X} -> Bool .
+  eq notEmpty( empty ) = false .
+  eq notEmpty( (I |-> sentinel) ) = false .
+  eq notEmpty( IS ) = true [owise] .
+  
+  sort Pair{Rat,X} .
+  op <_;_> : X$Elt Map{Rat,X} -> Pair{Rat,X} .
+
+  
+  op projectSmallest : Map{Rat,X} ~> Pair{Rat,X} .
+  --- not defined when the map is empty
+  eq projectSmallest( empty ) = < undefined ; empty > .
+  eq projectSmallest( IS ) = projectSmallest( IS, 0 ) .
+
+  op projectSmallest : Map{Rat,X} Nat ~> Pair{Rat,X} .
+  eq projectSmallest( (I |-> Obj, IS), I ) = < Obj ; IS > .
+  --- if there is an element we are guaranteed to find it
+  eq projectSmallest( IS, I ) = projectSmallest( IS, I +N 1 ) [owise] .
+  
+endfm 
+
+mod FMA-CONFIGURATION is 
+  inc CONFIGURATION  .
+endm
+
+view Oid from TRIV to FMA-CONFIGURATION is
+  sort Elt to Oid .
+endv
+
+view Object from TRIV to FMA-CONFIGURATION is
+  sort Elt to Object .
+endv
+
+mod PRE-MODEL-OCL is
+  pr OCL-TYPE  .
+  pr IMAP{Object} * (
+  	sort Map{Rat,Object} to IObjectSet, 
+  	sort Entry{Rat,Object} to IObject, 
+  	op undefined to undefIObject,
+  	op _`,_ : Map{Rat,Object} Map{Rat,Object} -> Map{Rat,Object} to __ 
+  ) . 
+  pr IMAP{Oid} * (
+  	sort Map{Rat,Oid} to IOidSet, 
+  	sort Entry{Rat,Oid} to IOid, 
+  	op undefined to undefIOid,
+  	op _`,_ : Map{Rat,Oid} Map{Rat,Oid} -> Map{Rat,Oid} to __ 
+  ) .
+
+  var O O' O1 O2 : Oid .
+  var iO : IOid . --- indexed object id
+  var C C1 C2 : QualifiedCid .
+  var PS : PropSet .
+  var P P1 P2 : PropName .
+  var L L' : Location .
+  vars iOS iOS1 iOS2 : IObjectSet .
+  vars IS IS1 IS2 : IOidSet .
+  vars OidS OidS1 OidS2 OidS3 : OidSet .
+  vars Obj : Object .
+  var V : ValueExpr .
+  vars I I1 I2 : Int .
+  var S : String .
+  var B : Bool . 
+  
+  sort FmaTerm .
+  op term : IObjectSet -> FmaTerm . 
+  op term : IOidSet -> FmaTerm . 
+  op term : ValueExpr -> FmaTerm . 
+  
+  --- cid
+  op cid : String -> Cid [ctor] .
+  
+  --- oid 
+  op oid : QualifiedCid BasicType -> Oid [ctor] .
+  op {"$oid"`=_} : ValueExpr -> Oid [ctor] .  --- MondoDB oids
+  
+  op getCid : Oid -> QualifiedCid .
+  eq getCid(oid(C,I)) = C .
+  eq getCid(oid(C,S)) = C .
+   
+  --- properties
+  sorts PropName Property PropSet .
+  subsort Property < PropSet .
+  op prop : String -> PropName .
+
+  --- values
+  sort ValueExpr .
+  op val : BasicType -> ValueExpr .
+
+  op default : ValueExpr -> ValueExpr .
+  eq default( val(I) ) = val(0) .
+  eq default( val(S) ) = val("") .
+  eq default( val(B) ) = val(false) .
+
+  --- properties
+  op _=_ : PropName ValueExpr -> Property [ctor prec 20 format(i d d d)] .
+  
+  --- references: no containment
+  --- includes "_id" which only has one element
+  --- for vble references to be able to contain an identifier, independently of the index
+  --- for the "_id" property
+  op val : Oid -> ValueExpr .
+  --- for reference properties
+  op ref : IOidSet -> ValueExpr [ctor] .
+  --- for containment properties 
+  op val : IObjectSet -> ValueExpr [ctor] .  
+
+  op noProp : -> PropSet  [ctor] .
+  op _,_ : PropSet PropSet -> PropSet 
+            [ctor assoc comm id: noProp gather (e E) prec 21 format(d d n i)] .
+  eq P:Property, P:Property = P:Property .
+  
+  op _in_ : PropName PropSet -> Bool .
+  eq P in (P = V, PS) = true .
+  eq P in (PS) = false [owise] .
+  
+  --- objects 
+  op {_} : PropSet -> Object [ctor object prec 18]. 
+
+  --- --------------------------------------------------------------------------
+  --- object projections
+  op oid : IObject -> Oid .
+  eq oid(I |-> Obj) = oid(Obj) . 
+  op oid : Object -> Oid .
+  eq oid({ prop("_id") = val(O), PS }) = O .
+  op ps : IObject -> PropSet .
+  eq ps(I |-> Obj) = ps(Obj) .
+  op ps : Object -> PropSet .
+  eq ps({ PS }) = PS [owise] . 
+      
+  --- --------------------------------------------------------------------------
+  --- object locations
+  sorts Location LocSegment .
+  
+  op _._ : Location Location -> Location [prec 50 assoc gather (e E)] .
+
+  sorts OidLoc PropLoc .
+  subsorts OidLoc PropLoc < Location .
+  --- the following subsorts are used to avoid overloading issues
+  subsort PropLoc < OidLoc .
+  subsort PropName < Oid .
+  op loc : Oid -> OidLoc .
+  op loc : PropName -> PropLoc .
+
+  op unknown : -> Location .
+
+  op rootOid : Location ~> Oid .
+  eq rootOid( loc(O) ) = O .
+  eq rootOid( loc(O) . L ) = O .
+
+  op deepestOid : Location ~> Oid .
+  eq deepestOid( loc(O) ) = O .
+  eq deepestOid( L . loc(O) ) = O .
+  
+  op getContainerOid : Location ~> Oid .
+  eq getContainerOid( loc(O1) . loc(P) . loc(O2) ) = O1 .
+  eq getContainerOid( L . loc(O1) . loc(P) . loc(O2) ) = O1 .
+   
+  op getContainerPropName : Location ~> PropName .
+  eq getContainerPropName( loc(O1) . loc(P) . loc(O2) ) = P .
+  eq getContainerPropName( L . loc(O1) . loc(P) . loc(O2) ) = P .
+
+  --- --------------------------------------------------------------------------
+  --- OidSet
+  --- to work with non-indexed sets of object identifiers
+
+  sort OidSet .
+  sort OidSetElement .
+  subsort OidSetElement < OidSet .
+  op elem : Oid -> OidSetElement .
+  op emptyOidSet : -> OidSet [ctor] .
+  op __ : OidSet OidSet -> OidSet [ctor assoc comm id: emptyOidSet prec 19] .
+  
+  --- obtains a set of object identifiers given a set of indexed objects
+  op oids : IObjectSet -> OidSet .
+  eq oids( iOS ) = oids(iOS, emptyOidSet) .
+
+  op oids : IObjectSet OidSet -> OidSet .  
+
+  eq oids( empty, OidS2 ) = OidS2 .
+  eq oids( I |-> sentinel, OidS2 ) = OidS2 .
+  eq oids( (I1 |-> { PS }) iOS, OidS2 ) = oids(iOS, oids(PS, emptyOidSet) OidS2) .
+  
+  op oids : PropSet OidSet -> OidSet .
+  eq oids( noProp, OidS2 ) = OidS2 .
+  eq oids( (prop("_id") = val(O), PS), OidS2 ) = oids(PS, elem(O) OidS2).
+  eq oids( (P = val(iOS1), PS), OidS2 ) = oids(PS, oids(iOS1,emptyOidSet) OidS2) .
+  eq oids( (P = ref(IS), PS), OidS2 ) = oids(PS, OidS2) .
+  eq oids( (P = V, PS), OidS2 ) = oids(PS, OidS2) . 
+
+  op refs : IObjectSet -> OidSet .
+  eq refs( empty ) = emptyOidSet .
+  eq refs( I |-> sentinel ) = emptyOidSet .
+  eq refs( (I1 |-> { PS }) iOS ) = refs(PS) refs(iOS) .
+  op refs : PropSet ->  OidSet .
+  eq refs( noProp ) = emptyOidSet .
+  eq refs( prop("_id") = val(O), PS ) = refs(PS).
+  eq refs( P = val(iOS), PS ) = refs(iOS) refs(PS) .
+  eq refs( P = ref(IS), PS ) = iOidToOid(IS,emptyOidSet) refs(PS) .
+  eq refs( P = V, PS ) = refs(PS) .  
+
+  op iOidToOid : IOidSet OidSet -> OidSet .
+  eq iOidToOid( empty, OidS2 ) = OidS2 .
+  eq iOidToOid( I |-> sentinel, OidS2 ) = OidS2 .
+  eq iOidToOid( (I |-> O) IS, OidS2 ) = iOidToOid(IS, elem(O) OidS2) .
+  
+  op intersection : OidSet OidSet -> OidSet .
+  eq intersection( OidS1, OidS2 ) = intersection( OidS1, OidS2, emptyOidSet ) .
+
+  op intersection : OidSet OidSet OidSet -> OidSet .
+  eq intersection( OidS1, OidS2, OidS3 ) = OidS3 [owise] .
+  eq intersection( elem(O) OidS1, elem(O) OidS2, OidS3 ) = intersection(OidS1, OidS2, elem(O) OidS3) .
+  
+  
+  --- --------------------------------------------------------------------------
+  --- bidirectional refs
+  ---
+  sorts BiRefEnd .
+  op biRefEnd : QualifiedCid PropName -> BiRefEnd [ctor] .
+  op biCmtEnd : QualifiedCid PropName -> BiRefEnd [ctor] .
+  
+  sort RefOwner SimpleAction .
+  op refOwner : Oid PropName -> RefOwner [ctor] .
+  --- source, reference name, target 
+  op set : Oid PropName Oid -> SimpleAction .
+  op unset : Oid PropName Oid -> SimpleAction .
+  
+  --- --------------------------------------------------------------------------
+  --- unplug
+  ---
+  sort ObjSetPair .
+  subsort ObjSetPair < IObjectSet .
+  op <_;_> : IObjectSet IObjectSet -> ObjSetPair .
+  ops p1 p2 : ObjSetPair -> IObjectSet .
+  eq p1(< iOS1 ; iOS2 >) = iOS1 .
+  eq p2(< iOS1 ; iOS2 >) = iOS2 .
+
+
+op unplug : IObjectSet Location ~> ObjSetPair .
+eq [unplug-0] : 
+  unplug( (I:Int |-> { prop("_id") = val(O:Oid), PS:PropSet }) OS:IObjectSet, loc(O:Oid) ) 
+= 
+  < OS:IObjectSet ; (I:Int |-> { prop("_id") = val(O:Oid), PS:PropSet }) > .
+eq [unplug-1] :
+  unplug(
+    (I:Int |-> { prop("_id") = val(O:Oid), P:PropName = val(
+      (I2:Int |-> { prop("_id") = val(O2:Oid), PS2:PropSet }) OS2:IObjectSet
+    ), PS:PropSet }) OS:IObjectSet ,
+    loc(O:Oid) . loc(P:PropName) . loc(O2:Oid)
+  ) 
+= <
+  (I:Int |-> { prop("_id") = val(O:Oid), P:PropName = val(
+    OS2:IObjectSet
+  ), PS:PropSet }) OS:IObjectSet
+;
+  (I2:Int |-> { prop("_id") = val(O2:Oid), PS2:PropSet })
+> .
+eq [unplug-2] : 
+  unplug(
+    (I:Int |-> { prop("_id") = val(O:Oid), P:PropName = val(
+      (I2:Int |-> { prop("_id") = val(O2:Oid), P2:PropName = val(
+        (I3:Int |-> { prop("_id") = val(O3:Oid), PS3:PropSet }) OS3:IObjectSet
+      ), PS2:PropSet }) OS2:IObjectSet
+    ), PS:PropSet }) OS:IObjectSet ,
+    loc(O:Oid) . loc(P:PropName) . loc(O2:Oid) . loc(P2:PropName) . loc(O3:Oid)
+  ) 
+= <
+  (I:Int |-> { prop("_id") = val(O:Oid), P:PropName = val(
+    (I2:Int |-> { prop("_id") = val(O2:Oid), P2:PropName = val(
+      OS3:IObjectSet
+    ), PS2:PropSet }) OS2:IObjectSet
+  ), PS:PropSet }) OS:IObjectSet
+;
+  (I3:Int |-> { prop("_id") = val(O3:Oid), PS3:PropSet })
+> .
+
+
+
+
+  --- --------------------------------------------------------------------------
+  --- plug
+  ---
+
+  op plug : IObjectSet IObject Location ~> IObjectSet .
+  eq [plug-0] : plug( (I2 |-> sentinel) iOS, (I |-> { prop("_id") = val(O) , PS }), loc(O) ) = 
+    (I2 |-> { prop("_id") = val(O) , PS }) iOS ((I2 +N 1) |-> sentinel) .
+  eq [plug-1] : plug( 
+      (I:Int |-> { prop("_id") = val(O:Oid), P:PropName = val(
+        (I3:Int |-> sentinel)
+        OS2:IObjectSet
+      ), PS:PropSet }) OS:IObjectSet , 
+      (I2:Int |-> { prop("_id") = val(O2:Oid), PS2:PropSet }), 
+      loc(O:Oid) . loc(P:PropName) . loc(O2:Oid) 
+  ) = 
+    (I:Int |-> { prop("_id") = val(O:Oid), P:PropName = val(
+      ((I3:Int +N 1) |-> sentinel)
+      (I3:Int |-> { prop("_id") = val(O2:Oid), PS2:PropSet })
+      OS2:IObjectSet
+    ), PS:PropSet }) OS:IObjectSet .
+
+
+  --- --------------------------------------------------------------------------
+  --- model type: extensions for typed case only
+  ---  
+  
+  sort ModelTypeName .
+  op metamodel : String -> ModelTypeName [ctor].
+  
+  sorts QualifiedCid .
+  op _!_ : ModelTypeName Cid -> QualifiedCid [ctor] .
+  op getCid : QualifiedCid -> Cid .
+  eq getCid( M:ModelTypeName ! C:Cid ) = C:Cid .
+  op getMetamodelName : QualifiedCid -> ModelTypeName .
+  eq getMetamodelName( M:ModelTypeName ! C:Cid ) = M:ModelTypeName .
+  
+  subsort QualifiedCid < Cid .
+ 
+  op default : QualifiedCid -> [PropSet] .
+  sort Record .
+  op cl : QualifiedCid -> [Record] .
+  op r : ModelTypeName -> QualifiedCid .
+
+
+
+  
+endm
+
