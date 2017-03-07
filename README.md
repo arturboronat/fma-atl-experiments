@@ -4,13 +4,14 @@
 
 This case study has been adapted from the ATL model-to-model transformation [Class2Relational](https://www.eclipse.org/atl/atlTransformations/#Class2Relational).
 
-The files used to run experiments can be found for ATL and for FMA-ATL below.
+The files used to run experiments for ATL and for FMA-ATL can be found below.
 
 ### ATL
 
 The experiment was run with ATL 3.6 (regular).
 
-#### Metamodels: 
+#### Metamodels
+
 * Source: [Extended Class metamodel (ecore)](atl/metamodels/Class.ecore)
 
 <img src="./atl/metamodels/ClassMM.png" style="width:600px;">
@@ -20,7 +21,7 @@ The experiment was run with ATL 3.6 (regular).
 
 <img src="./atl/metamodels/RelationalMM.png" style="width:800px">
 
-#### Models:
+#### Models
 
 | #Model size | #Packages | #Classes | #Attributes | xmi  |
 |-------------|-----------|----------|-------------|------|
@@ -38,6 +39,8 @@ The experiment was run with ATL 3.6 (regular).
 | 52000 | 2000 | 10000 | 40000 | [model02000.xmi](./atl/inputModels/inputModel-02000.xmi) |
 | 78000 | 3000 | 15000 | 60000 | [model03000.xmi](./atl/inputModels/inputModel-03000.xmi) |
 
+As an example, we show the the input model with one root package and the corresponding generated file:
+
 * Input model 00001:
 
 <img src="./atl/inputModels/inputModel00001.png" style="width:1000px;">
@@ -53,6 +56,8 @@ The experiment was run with ATL 3.6 (regular).
 ## FMA-ATL
 
 The experiment was run with Maude 2.6.
+
+Below we give pointers to the files that run the transformation in FMA-ATL gathering execution times.
 
 ### FMA-ATL (with matched rules only - no lazy rules)
 
