@@ -136,10 +136,11 @@ mod FMA-OCL-SEMANTICS is
   var OLM : Map{Oid,Location} .
   var IOBJ : IObject .
   var OS : IObjectSet .
-  var C : QualifiedCid .
+  var C C1 C2 : QualifiedCid .
   var PS : PropSet .
   var P : PropName .
   var CF : Configuration .
+  var N : Nat .
   
   
   op state : IObjectSet -> Msg [ctor] .
@@ -158,6 +159,43 @@ mod FMA-OCL-SEMANTICS is
   =
     eval-allInstances(MTN:ModelTypeName ! C1:Cid, OLM, include(oid(MTN:ModelTypeName ! C2:Cid,I:Int),S:Set) ) 
   if C1:Cid =/= C2:Cid /\ isSubtypeOf(MTN:ModelTypeName ! C2:Cid,MTN:ModelTypeName ! C1:Cid,sr(MTN:ModelTypeName)) .
+  eq eval-allInstances(C, OLM, S:Set ) = S:Set [owise] .
+
+
+
+
+
+
+  --- op eval-allInstances : Cid Configuration Set -> Set . 
+  --- use the location map to retrieve instances efficiently
+  op eval-allInstances-Seq : Cid Configuration Sequence -> Sequence . 
+  eq eval-allInstances-Seq(C, oclLoc(OLM) CF, S:Sequence ) =
+    eval-allInstances-Seq(C, OLM, S:Sequence ) .
+  
+  op eval-allInstances-Seq : QualifiedCid Map{Oid,Location} Sequence -> Sequence .  
+  eq [allInstances-Seq-match] : 
+    eval-allInstances-Seq(C, (oid(C,N) |-> L, OLM), S:Sequence ) 
+  =
+    eval-allInstances-Seq(C, OLM, include(oid(C,N), S:Sequence) ) .
+    
+  ceq [allInstances-Seq-subtype] : 
+    eval-allInstances-Seq(
+      C1, 
+      (oid(C2,N) |-> L, OLM), 
+      S:Sequence 
+    ) 
+  =
+    eval-allInstances-Seq(
+      C1, 
+      OLM, 
+      include(oid(C2,N), S:Sequence) 
+    ) 
+  if C1 =/= C2 /\ isSubtypeOf(C2, C1, sr(getCid(C2))) .
+  eq eval-allInstances-Seq(C, OLM, S:Sequence ) = S:Sequence [owise] .
+
+
+  
+  
   
   
   eq eval-allInstances(C, OLM, S:Set ) = S:Set [owise] .
@@ -165,6 +203,8 @@ mod FMA-OCL-SEMANTICS is
   subsort PropName < AttributeName .
   op oclLoc : Map{Oid,Location} -> Msg [ctor] .
   
+
+  --- optimized version without getPropertyValue
   ceq get-attr((O . P), (state(OS) oclLoc(OLM) CF)) = 
     fmaValToOclVal(VAL)
   if

@@ -684,7 +684,13 @@ mod FMA-SEMANTICS is
   => 
     fmaActK(K | env(E') | model(iOS2) | focus(L) 
     | ps(P = val((if hasElement(iOS,Obj) then (iOS (I2 |-> sentinel)) else ((I2 |-> Obj)((I2 +N 1) |-> sentinel) iOS) fi)), PS) 
-    | pendingActions(((I3 |-> unset(O,P2,O3)),((I3 + 1) |-> set(O,P2,oid(MTN ! SC, OID) )),SAIS,((I3 +N 1) |-> sentinel))) 
+    | if (O3 == oid((metamodel("") ! cid("")),0)) then 
+        --- it was a root object: no container 
+        pendingActions((((I3) |-> set(O,P2,oid(MTN ! SC, OID))),SAIS, ((I3 +N 1) |-> sentinel)))
+      else
+        --- we remove the reference to the old container
+        pendingActions(((I3 |-> unset(O,P2,O3)),((I3 + 1) |-> set(O,P2,oid(MTN ! SC, OID) )),SAIS,((I3 +N 1) |-> sentinel))) 
+      fi
     | stmt2(*)) 
   if
     oid(MTN ! SC, OID) := deepestOid(L) --- new container
@@ -945,12 +951,12 @@ mod FMA-SEMANTICS is
     applyActionsInSubmodel(SAIS, loc((O1 |-> L, LOCM)) E,
       plug(
         OSCTX, 
-        (I2 |-> { P = ref(IS), PS }), 
+        (I |-> { P = ref(IS), PS }), 
         L
       )
     )
   if 
-    < OSCTX ; (I2 |-> { P = ref((I2 |-> O2) IS), PS }) > := unplug(iOS,L) .
+    < OSCTX ; (I |-> { P = ref((I2 |-> O2) IS), PS }) > := unplug(iOS,L) .
 
   --- owise: includes base case (empty set) and induction step
   eq applyActionsInSubmodel( SAIS, E, iOS ) = < iOS ; SAIS > [owise] .
@@ -993,10 +999,10 @@ mod FMA-SEMANTICS is
     resolveActions(
       SAIS, 
       loc((O1 |-> L, LOCM)) E,
-      plug(OSCTX, (I2 |-> { P = ref(IS), PS }), L)
+      plug(OSCTX, (I |-> { P = ref(IS), PS }), L)
     )
   if 
-    < OSCTX ; (I2 |-> { P = ref((I2 |-> O2) IS), PS }) > := unplug(iOS,L) .
+    < OSCTX ; (I |-> { P = ref((I2 |-> O2) IS), PS }) > := unplug(iOS,L) .
     
     
   crl [E-Snapshot2] :

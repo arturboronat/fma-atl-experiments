@@ -48,13 +48,13 @@ mod FMA-ATL-SEMANTICS is
   
   --- PROJECTORS
   op getDomainModel : VarExpr AtlKWrapper -> IObjectSet .
-  eq getDomainModel( V:VarExpr, atlK(K:K | domain(V:VarExpr, OS:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location}) ) ) = OS:IObjectSet .
+  eq getDomainModel( V:VarExpr, atlMatchingK(K:K | domain(V:VarExpr, OS:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location}) ) ) = OS:IObjectSet .
 
   
   op getEnv : VarExpr AtlKWrapper -> Env .
   eq getEnv( 
   	V:VarExpr, 
-  	atlK(K:K | domain(V:VarExpr, OS:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location}) ) 
+  	atlMatchingK(K:K | domain(V:VarExpr, OS:IObjectSet, NEW:Map{QualifiedCid,Oid}, LOC:Map{Oid,Location}) ) 
   ) = var(empty) new(NEW:Map{QualifiedCid,Oid}) loc(LOC:Map{Oid,Location}) .
 
   
@@ -74,7 +74,7 @@ mod FMA-ATL-SEMANTICS is
   --- var of MODEL NAME 
   --- match filter
   --- FMA stmt for creating tree of objects
-  --- unused
+  --- FMA stmt for initializing graphs
   --- FMA stmt for creating link
   --- op atlRule : ProcName QualifiedCid VarExpr Expr Stmt Stmt Stmt -> AtlRule [ctor] .
   op atlRule : ProcName QualifiedCid VarExpr VarExpr Expr DomainStmtSet -> AtlRule [ctor] .
@@ -1410,10 +1410,10 @@ mod FMA-ATL-SEMANTICS is
   --- not defined for values
   eq [image-ref-empty] : image( ref(empty), VAL:ValueExpr, TM:Map{LinkSource,LinkTarget}, IS:IOidSet ) = IS:IOidSet  . --- empty
   eq [image-ref-sentinel] : image( ref( (I:Nat |-> sentinel ) ), VAL:ValueExpr, TM:Map{LinkSource,LinkTarget}, IS:IOidSet ) = IS:IOidSet . --- empty
-  ceq [image-ref-collection] : 
+  ceq [image-ref-collection-grabbedByPattern] : 
     image( 
         ref((I:Nat |-> SO:Oid) (I2:Nat |-> sentinel) IS1:IOidSet), 
-        VAL:ValueExpr, 
+        VAL:ValueExpr, --- <--- pattern 
         TM:Map{LinkSource,LinkTarget}, 
         (I3:Nat |-> sentinel) IS2:IOidSet
     ) 
@@ -1424,7 +1424,61 @@ mod FMA-ATL-SEMANTICS is
       TM:Map{LinkSource,LinkTarget},
       (I3:Nat |-> TO:Oid) (I3:Nat +N 1 |-> sentinel) IS2:IOidSet
     )
-  if linkTarget(RN:ValueExpr,TO:Oid) := TM:Map{LinkSource,LinkTarget} [ linkSource(SO:Oid,VAL:ValueExpr) ] . 
+  if linkTarget(RN:ValueExpr,TO:Oid) := TM:Map{LinkSource,LinkTarget} [ linkSource(SO:Oid,VAL:ValueExpr) ] . --- <--- determines whether there is a link for the pattern vble
+  ceq [image-ref-collection-notInPattern] : 
+    image( 
+        ref((I:Nat |-> SO:Oid) (I2:Nat |-> sentinel) IS1:IOidSet), 
+        VAL:ValueExpr, --- <--- pattern 
+        TM:Map{LinkSource,LinkTarget}, 
+        IS2:IOidSet
+    ) 
+  =
+    image( 
+      ref((I2:Nat |-> sentinel) IS1:IOidSet), --- <--- remove oid
+      VAL:ValueExpr, 
+      TM:Map{LinkSource,LinkTarget},
+      IS2:IOidSet
+    )
+  if 
+  	TM:Map{LinkSource,LinkTarget} [ linkSource(SO:Oid,VAL:ValueExpr) ] == undefined --- <--- determines whether there is a link for the pattern vble
+  /\
+  	isTraced(SO:Oid, TM:Map{LinkSource,LinkTarget}) == true
+  .
+  
+  op isTraced : Oid Map{LinkSource,LinkTarget} -> [Bool] .
+  eq isTraced( 
+  	SO:Oid, 
+  	(
+  		(linkSource(SO:Oid,VAL:ValueExpr) |-> linkTarget(RN:ValueExpr,TO:Oid)),
+  		TM:Map{LinkSource,LinkTarget}
+  	) 
+  ) = true .  
+  --- eq isTraced( O, TM:Map{LinkSource,LinkTarget} ) = false [owise] .
+  
+   
+***(
+  --- not defined for references that are not traced
+  eq [image-ref-collection] : 
+    image( 
+        ref(IS1:IOidSet), 
+        VAL:ValueExpr, 
+        TM:Map{LinkSource,LinkTarget}, 
+        IS2:IOidSet
+    ) 
+  =
+    IS2:IOidSet [owise] .
+)  
+  
+  
+  
+  
+
+  op extAtlK : K -> K .
+
+  		 
+
+
+
 
 
   op extAtlK : K -> K .
